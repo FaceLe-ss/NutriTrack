@@ -189,33 +189,59 @@ class NutriApp {
   renderCalorieGauge(summary) {
     const target = Number(this.settings.target_calories) || 2100;
     const consumed = Math.round(summary.calories);
-    const remaining = Math.max(0, target - consumed);
+    const isExceeded = consumed > target;
+    const diff = Math.abs(consumed - target);
 
     const radius = 50;
     const perimeter = 2 * Math.PI * radius; // ~314.15
     const progress = Math.min(1, consumed / target);
-    const strokeOffset = perimeter * (1 - progress);
+    const strokeOffset = isExceeded ? 0 : perimeter * (1 - progress);
 
     const circle = document.getElementById('gaugeCircleProgress');
     if (circle) {
       circle.style.strokeDasharray = perimeter;
       circle.style.strokeDashoffset = strokeOffset;
+      circle.style.stroke = isExceeded ? '#ef4444' : 'var(--color-calories)';
     }
 
     const remainingElem = document.getElementById('gaugeRemainingNumber');
     if (remainingElem) {
-      remainingElem.textContent = remaining.toLocaleString('ru-RU');
+      if (isExceeded) {
+        remainingElem.textContent = `+${diff.toLocaleString('ru-RU')}`;
+        remainingElem.style.color = '#ef4444';
+        remainingElem.style.fontSize = diff >= 1000 ? '22px' : '26px';
+      } else {
+        remainingElem.textContent = (target - consumed).toLocaleString('ru-RU');
+        remainingElem.style.color = 'var(--text-main)';
+        remainingElem.style.fontSize = (target - consumed) >= 1000 ? '22px' : '26px';
+      }
     }
 
     const remainingLabel = document.getElementById('gaugeRemainingLabel');
     if (remainingLabel) {
-      remainingLabel.textContent = consumed > target ? 'превышение' : 'осталось';
-      remainingLabel.style.color = consumed > target ? '#ef4444' : 'var(--text-muted)';
+      if (isExceeded) {
+        remainingLabel.textContent = 'превышено';
+        remainingLabel.style.color = '#ef4444';
+      } else {
+        remainingLabel.textContent = 'осталось';
+        remainingLabel.style.color = 'var(--text-muted)';
+      }
     }
 
     const consumedElem = document.getElementById('gaugeConsumedNumber');
     if (consumedElem) {
       consumedElem.textContent = consumed.toLocaleString('ru-RU');
+      consumedElem.style.color = isExceeded ? '#ef4444' : '';
+    }
+
+    const excessNotice = document.getElementById('gaugeExcessNotice');
+    if (excessNotice) {
+      if (isExceeded) {
+        excessNotice.textContent = `⚠️ Превышено на ${diff.toLocaleString('ru-RU')} ккал`;
+        excessNotice.style.display = 'block';
+      } else {
+        excessNotice.style.display = 'none';
+      }
     }
 
     const targetElem = document.getElementById('gaugeTargetNumber');
@@ -433,16 +459,13 @@ class NutriApp {
   }
 
   hasValidApiKey() {
-    if (this.settings?.api_provider === 'openrouter') {
-      return !!(this.settings.openrouter_api_key && this.settings.openrouter_api_key.trim());
-    }
-    return !!(this.settings?.gemini_api_key && this.settings.gemini_api_key.trim());
+    return !!(this.settings?.openrouter_api_key && this.settings.openrouter_api_key.trim());
   }
 
   // 1. TRIGGER CAMERA
   triggerPhotoCapture() {
     if (!this.hasValidApiKey()) {
-      this.openSettingsModal('Для распознавания укажите API-ключ (Gemini или OpenRouter) в настройках.');
+      this.openSettingsModal('Для распознавания укажите API-ключ OpenRouter в настройках.');
       return;
     }
     const input = document.getElementById('cameraInput');
@@ -462,7 +485,7 @@ class NutriApp {
       // 1. Compress image on client
       const processed = await window.NutriCamera.processImageFile(file, 1024, 0.82);
 
-      // 2. Call Gemini Vision API
+      // 2. Call OpenRouter / Gemini Vision API
       const aiResult = await window.NutriGemini.analyzeFoodImage(processed.base64, processed.mimeType);
 
       this.closeLoadingModal();
@@ -478,10 +501,10 @@ class NutriApp {
     }
   }
 
-  // 2. VOICE CONTROLLER (Tap-to-start / Tap-to-stop)
+  // 2. VOICE CONTROLLER (Tap-to-start / Tap-to-stop with multi-trigger support)
   triggerVoiceInput() {
     if (!this.hasValidApiKey()) {
-      this.openSettingsModal('Для голосового ввода укажите API-ключ в настройках.');
+      this.openSettingsModal('Для голосового ввода укажите API-ключ OpenRouter в настройках.');
       return;
     }
 
@@ -495,6 +518,47 @@ class NutriApp {
     if (micBtn) micBtn.classList.remove('recording');
 
     overlay.classList.add('active');
+
+    // Immediately start listening on dock button click (valid user gesture)
+    this.startVoiceSession();
+  }
+
+  startVoiceSession() {
+    const micBtn = document.getElementById('voiceMicHeroBtn');
+    const statusLabel = document.getElementById('voiceStatusLabel');
+    const input = document.getElementById('voiceTranscriptInput');
+    const currentText = input ? input.value : '';
+
+    if (statusLabel) statusLabel.textContent = 'Слушаю вас... Говорите';
+    if (micBtn) micBtn.classList.add('recording');
+
+    const started = window.NutriVoice.start(
+      (recognizedText) => {
+        if (input) input.value = recognizedText;
+      },
+      (isListening) => {
+        if (!isListening && micBtn) {
+          micBtn.classList.remove('recording');
+          if (statusLabel) {
+            const hasText = input && input.value.trim();
+            statusLabel.textContent = hasText
+              ? 'Запись остановлена. Нажмите микрофон снова или «Рассчитать блюдо»'
+              : 'Нажмите на микрофон для записи';
+          }
+        }
+      },
+      (errorMsg) => {
+        if (micBtn) micBtn.classList.remove('recording');
+        if (statusLabel) statusLabel.textContent = errorMsg;
+        this.showToast(errorMsg, true);
+      },
+      currentText
+    );
+
+    if (!started && statusLabel) {
+      statusLabel.textContent = 'Микрофон недоступен. Надиктуйте через микрофон на клавиатуре.';
+      input?.focus();
+    }
   }
 
   toggleVoiceRecording() {
@@ -506,41 +570,14 @@ class NutriApp {
       // User tapped mic to STOP recording
       const text = window.NutriVoice.stop();
       if (micBtn) micBtn.classList.remove('recording');
-      if (statusLabel) statusLabel.textContent = 'Запись остановлена';
-
-      if (text) {
-        if (input) input.value = text;
-        // Auto-submit after stopping
-        this.submitVoiceText();
-      } else {
-        if (statusLabel) statusLabel.textContent = 'Речь не обнаружена. Попробуйте еще раз или напишите текстом.';
+      if (statusLabel) {
+        statusLabel.textContent = text
+          ? 'Запись остановлена. Нажмите «Рассчитать блюдо» или микрофон снова'
+          : 'Нажмите на микрофон для записи';
       }
     } else {
-      // User tapped mic to START recording
-      if (input) input.value = '';
-      if (statusLabel) statusLabel.textContent = 'Слушаю вас... Нажмите еще раз, чтобы остановить';
-      if (micBtn) micBtn.classList.add('recording');
-
-      const started = window.NutriVoice.start(
-        (recognizedText) => {
-          if (input) input.value = recognizedText;
-        },
-        (isListening) => {
-          if (!isListening && micBtn) {
-            micBtn.classList.remove('recording');
-          }
-        },
-        (errorMsg) => {
-          if (micBtn) micBtn.classList.remove('recording');
-          if (statusLabel) statusLabel.textContent = errorMsg;
-          this.showToast(errorMsg, true);
-        }
-      );
-
-      if (!started && statusLabel) {
-        statusLabel.textContent = 'Микрофон недоступен. Надиктуйте через микрофон на клавиатуре.';
-        input?.focus();
-      }
+      // User tapped mic to START recording (supports unlimited restarts)
+      this.startVoiceSession();
     }
   }
 
@@ -788,17 +825,11 @@ class NutriApp {
     document.getElementById('settingTargetCarbs').value = settings.target_carbs || 220;
     document.getElementById('settingXeRatio').value = settings.xe_ratio || 10;
 
-    // AI Provider fields
-    this.switchProvider(settings.api_provider || 'gemini');
-
-    // Gemini
-    document.getElementById('settingApiKey').value = settings.gemini_api_key || '';
-    document.getElementById('settingGeminiProxy').value = settings.gemini_proxy_url || '';
-    document.getElementById('settingModel').value = settings.gemini_model || 'gemini-3.5-flash-lite';
-
-    // OpenRouter
-    document.getElementById('settingOpenRouterKey').value = settings.openrouter_api_key || '';
-    document.getElementById('settingOpenRouterModel').value = settings.openrouter_model || 'google/gemini-2.5-flash-lite';
+    // OpenRouter fields
+    const keyInput = document.getElementById('settingOpenRouterKey');
+    if (keyInput) keyInput.value = settings.openrouter_api_key || '';
+    const modelInput = document.getElementById('settingOpenRouterModel');
+    if (modelInput) modelInput.value = settings.openrouter_model || 'google/gemini-2.5-flash-lite';
 
     const noticeBox = document.getElementById('settingsNoticeBox');
     if (noticeMsg) {
@@ -812,41 +843,7 @@ class NutriApp {
   }
 
   switchProvider(provider) {
-    this.currentProvider = provider;
-    const geminiPanel = document.getElementById('geminiSettingsPanel');
-    const openRouterPanel = document.getElementById('openRouterSettingsPanel');
-    const geminiBtn = document.getElementById('providerGeminiBtn');
-    const openRouterBtn = document.getElementById('providerOpenRouterBtn');
-
-    if (provider === 'openrouter') {
-      if (geminiPanel) geminiPanel.style.display = 'none';
-      if (openRouterPanel) openRouterPanel.style.display = 'flex';
-
-      if (openRouterBtn) {
-        openRouterBtn.style.backgroundColor = 'var(--bg-surface)';
-        openRouterBtn.style.color = 'var(--text-main)';
-        openRouterBtn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-      }
-      if (geminiBtn) {
-        geminiBtn.style.backgroundColor = 'transparent';
-        geminiBtn.style.color = 'var(--text-muted)';
-        geminiBtn.style.boxShadow = 'none';
-      }
-    } else {
-      if (geminiPanel) geminiPanel.style.display = 'flex';
-      if (openRouterPanel) openRouterPanel.style.display = 'none';
-
-      if (geminiBtn) {
-        geminiBtn.style.backgroundColor = 'var(--bg-surface)';
-        geminiBtn.style.color = 'var(--text-main)';
-        geminiBtn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-      }
-      if (openRouterBtn) {
-        openRouterBtn.style.backgroundColor = 'transparent';
-        openRouterBtn.style.color = 'var(--text-muted)';
-        openRouterBtn.style.boxShadow = 'none';
-      }
-    }
+    this.currentProvider = 'openrouter';
   }
 
   onProfileChange() {
@@ -888,13 +885,9 @@ class NutriApp {
     const user_height = Number(document.getElementById('settingUserHeight').value) || '';
     const user_weight = Number(document.getElementById('settingUserWeight').value) || '';
 
-    const api_provider = this.currentProvider || 'gemini';
-    const gemini_api_key = document.getElementById('settingApiKey').value.trim();
-    const gemini_proxy_url = document.getElementById('settingGeminiProxy').value.trim();
-    const gemini_model = document.getElementById('settingModel').value;
-
-    const openrouter_api_key = document.getElementById('settingOpenRouterKey').value.trim();
-    const openrouter_model = document.getElementById('settingOpenRouterModel').value;
+    const api_provider = 'openrouter';
+    const openrouter_api_key = document.getElementById('settingOpenRouterKey') ? document.getElementById('settingOpenRouterKey').value.trim() : '';
+    const openrouter_model = document.getElementById('settingOpenRouterModel') ? document.getElementById('settingOpenRouterModel').value : 'google/gemini-2.5-flash-lite';
 
     const target_calories = Math.max(500, Number(document.getElementById('settingTargetCalories').value) || 2100);
     const target_protein = Math.max(10, Number(document.getElementById('settingTargetProtein').value) || 140);
@@ -907,9 +900,6 @@ class NutriApp {
       user_height,
       user_weight,
       api_provider,
-      gemini_api_key,
-      gemini_proxy_url,
-      gemini_model,
       openrouter_api_key,
       openrouter_model,
       target_calories,
@@ -924,29 +914,6 @@ class NutriApp {
     this.closeSettingsModal();
     await this.refreshData();
     this.showToast('✅ Профиль и настройки сохранены!');
-  }
-
-  async testGeminiKey() {
-    const key = document.getElementById('settingApiKey').value.trim();
-    const proxy = document.getElementById('settingGeminiProxy').value.trim();
-    if (!key) {
-      alert('Пожалуйста, введите API-ключ Gemini для проверки.');
-      return;
-    }
-
-    const testBtn = document.getElementById('testKeyBtn');
-    testBtn.textContent = 'Проверка...';
-    testBtn.disabled = true;
-
-    try {
-      await window.NutriGemini.testApiKey(key, proxy);
-      alert('Успешно! Ключ Gemini API валиден и работает (соединение установлено).');
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      testBtn.textContent = 'Проверить';
-      testBtn.disabled = false;
-    }
   }
 
   async testOpenRouterKey() {

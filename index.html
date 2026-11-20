@@ -76,6 +76,7 @@
           <div>
             <div class="stat-item-label">Употреблено</div>
             <div class="stat-item-val"><span id="gaugeConsumedNumber">0</span> <small>ккал</small></div>
+            <div id="gaugeExcessNotice" style="display:none;font-size:11px;font-weight:700;color:#ef4444;margin-top:2px;"></div>
           </div>
           <div class="divider"></div>
           <div>
@@ -466,82 +467,31 @@
           </div>
         </div>
 
-        <!-- Section: AI Provider & No-VPN Settings -->
+        <!-- Section: AI Provider (OpenRouter) -->
         <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">🤖 ИИ-распознавание (Работа без VPN)</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">🤖 ИИ-распознавание (OpenRouter)</div>
 
-          <!-- Provider Switcher -->
           <div class="form-group">
-            <label class="form-label">Провайдер ИИ</label>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-surface-elevated);padding:3px;border-radius:12px;">
-              <button type="button" id="providerGeminiBtn" onclick="window.app.switchProvider('gemini')" style="padding:8px 6px;border-radius:9px;border:none;font-size:11px;font-weight:700;cursor:pointer;">
-                🌐 Google Gemini
-              </button>
-              <button type="button" id="providerOpenRouterBtn" onclick="window.app.switchProvider('openrouter')" style="padding:8px 6px;border-radius:9px;border:none;font-size:11px;font-weight:700;cursor:pointer;">
-                ⚡ OpenRouter (Без VPN)
+            <label class="form-label">OpenRouter API Key</label>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="settingOpenRouterKey" class="form-input" placeholder="sk-or-v1-..." />
+              <button class="btn-secondary" id="testOpenRouterKeyBtn" style="width:auto;white-space:nowrap;padding:10px 14px;font-size:12px;" onclick="window.app.testOpenRouterKey()">
+                Проверить
               </button>
             </div>
+            <span style="font-size:10px;color:var(--text-dim);">
+              OpenRouter доступен в РФ <b>напрямую без VPN</b>. Регистрация: <a href="https://openrouter.ai" target="_blank" style="color:var(--color-protein);text-decoration:underline;">openrouter.ai</a>.
+            </span>
           </div>
 
-          <!-- Gemini Settings Panel -->
-          <div id="geminiSettingsPanel" style="display:flex;flex-direction:column;gap:10px;">
-            <div class="form-group">
-              <label class="form-label">Google Gemini API Key</label>
-              <div style="display:flex;gap:8px;">
-                <input type="password" id="settingApiKey" class="form-input" placeholder="AIzaSy..." />
-                <button class="btn-secondary" id="testKeyBtn" style="width:auto;white-space:nowrap;padding:10px 14px;font-size:12px;" onclick="window.app.testGeminiKey()">
-                  Проверить
-                </button>
-              </div>
-              <span style="font-size:10px;color:var(--text-dim);">Бесплатный ключ на aistudio.google.com.</span>
-            </div>
-
-            <!-- Cloudflare Proxy URL (Bypasses Google RU block without VPN) -->
-            <div class="form-group">
-              <label class="form-label" style="display:flex;justify-content:space-between;">
-                <span>Прокси URL (для работы без VPN)</span>
-                <span style="color:var(--color-calories);font-size:10px;font-weight:700;">Рекомендуется</span>
-              </label>
-              <input type="url" id="settingGeminiProxy" class="form-input" placeholder="https://your-worker.workers.dev" />
-              <span style="font-size:10px;color:var(--text-dim);">
-                Бесплатный Cloudflare Worker пересылает запросы в Google из США/Европы без VPN (инструкция в файле cloudflare_worker.js).
-              </span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Модель ИИ</label>
-              <select id="settingModel" class="form-input">
-                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Рекомендуется — быстрая и актуальная)</option>
-                <option value="gemini-3.5-flash">Gemini 3.5 Flash (Максимальная точность)</option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label class="form-label">Модель ИИ</label>
+            <select id="settingOpenRouterModel" class="form-input">
+              <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Рекомендуется — быстрая и дешевая)</option>
+              <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (Высокая точность)</option>
+              <option value="particle-ai/particle-1:free">Particle 1 (Бесплатная: :free)</option>
+            </select>
           </div>
-
-          <!-- OpenRouter Settings Panel (100% No VPN from Russia) -->
-          <div id="openRouterSettingsPanel" style="display:none;flex-direction:column;gap:10px;">
-            <div class="form-group">
-              <label class="form-label">OpenRouter API Key</label>
-              <div style="display:flex;gap:8px;">
-                <input type="password" id="settingOpenRouterKey" class="form-input" placeholder="sk-or-v1-..." />
-                <button class="btn-secondary" id="testOpenRouterKeyBtn" style="width:auto;white-space:nowrap;padding:10px 14px;font-size:12px;" onclick="window.app.testOpenRouterKey()">
-                  Проверить
-                </button>
-              </div>
-              <span style="font-size:10px;color:var(--text-dim);">
-                OpenRouter доступен в РФ <b>напрямую без VPN</b>. Регистрация бесплатна на <a href="https://openrouter.ai" target="_blank" style="color:var(--color-protein);text-decoration:underline;">openrouter.ai</a>.
-              </span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Модель на OpenRouter</label>
-              <select id="settingOpenRouterModel" class="form-input">
-                <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Рекомендуется — быстрая и дешевая)</option>
-                <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (Высокая точность)</option>
-                <option value="particle-ai/particle-1:free">Particle 1 (Бесплатная: :free)</option>
-              </select>
-            </div>
-          </div>
-
         </div>
 
         <button class="btn-primary" onclick="window.app.saveSettings()">
