@@ -7,7 +7,6 @@ class NutriVoice {
   constructor() {
     this.recognition = null;
     this.isListening = false;
-    this.isBusy = false;
     this.accumulatedText = '';
     this.baseText = '';
     this.onTextUpdate = null;
@@ -21,17 +20,17 @@ class NutriVoice {
 
   cleanup() {
     if (this.recognition) {
-      try {
-        this.recognition.onstart = null;
-        this.recognition.onresult = null;
-        this.recognition.onerror = null;
-        this.recognition.onend = null;
-        this.recognition.abort();
-      } catch (e) {}
+      const rec = this.recognition;
       this.recognition = null;
+      try {
+        rec.onstart = null;
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+        rec.abort();
+      } catch (e) {}
     }
     this.isListening = false;
-    this.isBusy = false;
   }
 
   start(onTextUpdate, onStateChange, onError, initialText = '') {
@@ -41,13 +40,8 @@ class NutriVoice {
       return false;
     }
 
-    if (this.isBusy) {
-      return false;
-    }
-
-    // Always ensure clean previous state
+    // Clean up any stale or running instance immediately
     this.cleanup();
-    this.isBusy = true;
 
     this.accumulatedText = initialText ? initialText.trim() : '';
     this.baseText = initialText ? initialText.trim() + ' ' : '';
@@ -61,12 +55,11 @@ class NutriVoice {
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
-      // On iOS Safari continuous can cause audio session crash or silent drop
+      // On iOS Safari continuous can cause audio session crash; on desktop Chrome/Edge continuous is great
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       recognition.continuous = !isIOS;
 
       recognition.onstart = () => {
-        this.isBusy = false;
         this.isListening = true;
         if (this.onStateChange) this.onStateChange(true);
       };
@@ -94,7 +87,6 @@ class NutriVoice {
 
       recognition.onerror = (event) => {
         console.warn('SpeechRecognition error:', event.error);
-        this.isBusy = false;
         this.isListening = false;
 
         if (event.error === 'no-speech') {
@@ -106,9 +98,9 @@ class NutriVoice {
 
         let msg = 'Ошибка микрофона (' + event.error + ').';
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          msg = 'Доступ к микрофону заблокирован в Safari. Включите микрофон в настройках сайта или используйте микрофон на клавиатуре iPhone.';
+          msg = 'Доступ к микрофону заблокирован. Разрешите микрофон в настройках браузера или используйте микрофон на клавиатуре.';
         } else if (event.error === 'network') {
-          msg = 'Сетевая ошибка распознавания речи Apple. Попробуйте еще раз или используйте клавиатуру.';
+          msg = 'Сетевая ошибка распознавания речи. Попробуйте еще раз или используйте клавиатуру.';
         } else if (event.error === 'audio-capture') {
           msg = 'Микрофон недоступен (занят другим приложением).';
         }
@@ -117,9 +109,10 @@ class NutriVoice {
       };
 
       recognition.onend = () => {
-        this.isBusy = false;
         this.isListening = false;
-        this.cleanup();
+        if (this.recognition === recognition) {
+          this.recognition = null;
+        }
         if (this.onStateChange) this.onStateChange(false, 'end');
       };
 
@@ -137,14 +130,14 @@ class NutriVoice {
 
   stop() {
     this.isListening = false;
-    this.isBusy = false;
     if (this.recognition) {
+      const rec = this.recognition;
+      this.recognition = null;
       try {
-        this.recognition.stop();
+        rec.stop();
       } catch (e) {
-        try { this.recognition.abort(); } catch (err) {}
+        try { rec.abort(); } catch (err) {}
       }
-      this.cleanup();
     }
     if (this.onStateChange) this.onStateChange(false, 'manual-stop');
     return this.accumulatedText.trim();

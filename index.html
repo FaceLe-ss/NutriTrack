@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css?v=15">
+  <link rel="stylesheet" href="./styles.css?v=16">
 </head>
 <body>
 
@@ -397,34 +397,38 @@
 
         <div id="settingsNoticeBox" style="display:none;background-color:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.3);color:#ef4444;font-size:11px;padding:10px;border-radius:12px;"></div>
 
-        <!-- Section: User Profile -->
+        <!-- Section 1: Calorie & Macro Goals (Main) -->
         <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-          <div style="font-size:12px;font-weight:700;color:var(--color-calories);text-transform:uppercase;letter-spacing:0.05em;">👤 Личный профиль</div>
+          <div style="font-size:12px;font-weight:700;color:var(--color-calories);text-transform:uppercase;letter-spacing:0.05em;">🎯 Дневная норма</div>
           
+          <div class="form-group">
+            <label class="form-label">Суточная норма калорий (ккал)</label>
+            <input type="number" id="settingTargetCalories" class="form-input" value="2100" style="font-size:18px;font-weight:800;color:var(--color-calories);" />
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+            <div class="form-group">
+              <label class="form-label" style="color:var(--color-protein);">Белки (г)</label>
+              <input type="number" id="settingTargetProtein" class="form-input" value="140" style="font-weight:700;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color:var(--color-fat);">Жиры (г)</label>
+              <input type="number" id="settingTargetFat" class="form-input" value="70" style="font-weight:700;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color:var(--color-carbs);">Углеводы (г)</label>
+              <input type="number" id="settingTargetCarbs" class="form-input" value="220" style="font-weight:700;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Profile & Theme -->
+        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-main);text-transform:uppercase;letter-spacing:0.05em;">👤 Профиль и оформление</div>
+
           <div class="form-group">
             <label class="form-label">Ваше имя</label>
             <input type="text" id="settingUserName" class="form-input" placeholder="Например: Виталий" />
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div class="form-group">
-              <label class="form-label">Рост (см)</label>
-              <input type="number" id="settingUserHeight" class="form-input" placeholder="178" oninput="window.app.onProfileChange()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Вес (кг)</label>
-              <input type="number" id="settingUserWeight" class="form-input" placeholder="75" oninput="window.app.onProfileChange()" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <label class="form-label">Суточная норма калорий (ккал)</label>
-              <button type="button" onclick="window.app.autoCalculateCalories()" style="background:none;border:none;color:var(--color-protein);font-size:11px;font-weight:700;cursor:pointer;padding:0;">
-                ⚡ Рассчитать по росту и весу
-              </button>
-            </div>
-            <input type="number" id="settingTargetCalories" class="form-input" value="2100" style="font-size:16px;font-weight:800;color:var(--color-calories);" />
           </div>
 
           <!-- Theme selector -->
@@ -441,61 +445,56 @@
           </div>
         </div>
 
-        <!-- Section: Macros & XE -->
-        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-          <div style="font-size:12px;font-weight:700;color:var(--color-carbs);text-transform:uppercase;letter-spacing:0.05em;">🎯 Цели КБЖУ и Хлебных Единиц</div>
+        <!-- Section 3: Advanced Options (Collapsible to keep settings clean) -->
+        <details style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:16px;padding:12px 14px;">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text-muted);outline:none;user-select:none;">
+            ⚙️ Дополнительные параметры (расчет нормы, API)
+          </summary>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group">
+                <label class="form-label">Рост (см)</label>
+                <input type="number" id="settingUserHeight" class="form-input" placeholder="178" oninput="window.app.onProfileChange()" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Вес (кг)</label>
+                <input type="number" id="settingUserWeight" class="form-input" placeholder="75" oninput="window.app.onProfileChange()" />
+              </div>
+            </div>
 
-          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+            <button type="button" class="btn-secondary" onclick="window.app.autoCalculateCalories()" style="font-size:12px;padding:8px;">
+              ⚡ Рассчитать норму по росту и весу
+            </button>
+
+            <!-- XE Ratio Setting -->
             <div class="form-group">
-              <label class="form-label">Белки (г)</label>
-              <input type="number" id="settingTargetProtein" class="form-input" value="140" />
+              <label class="form-label">Коэффициент Хлебной Единицы (ХЕ)</label>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <input type="number" id="settingXeRatio" class="form-input" style="width:80px;" value="10" />
+                <span style="font-size:11px;color:var(--text-muted);">г углеводов в 1 ХЕ</span>
+              </div>
             </div>
+
             <div class="form-group">
-              <label class="form-label">Жиры (г)</label>
-              <input type="number" id="settingTargetFat" class="form-input" value="70" />
+              <label class="form-label">Свой OpenRouter API Key (необязательно)</label>
+              <div style="display:flex;gap:8px;">
+                <input type="password" id="settingOpenRouterKey" class="form-input" placeholder="sk-or-v1-..." />
+                <button class="btn-secondary" id="testOpenRouterKeyBtn" style="width:auto;white-space:nowrap;padding:8px 12px;font-size:11px;" onclick="window.app.testOpenRouterKey()">
+                  Проверить
+                </button>
+              </div>
             </div>
+
             <div class="form-group">
-              <label class="form-label">Углеводы (г)</label>
-              <input type="number" id="settingTargetCarbs" class="form-input" value="220" />
+              <label class="form-label">Модель ИИ</label>
+              <select id="settingOpenRouterModel" class="form-input" style="font-size:12px;">
+                <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Рекомендуется)</option>
+                <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (Точная)</option>
+                <option value="particle-ai/particle-1:free">Particle 1 (Бесплатная)</option>
+              </select>
             </div>
           </div>
-
-          <!-- XE Ratio Setting -->
-          <div class="form-group">
-            <label class="form-label">Коэффициент Хлебной Единицы (ХЕ)</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <input type="number" id="settingXeRatio" class="form-input" style="width:90px;" value="10" />
-              <span style="font-size:11px;color:var(--text-muted);">граммов углеводов в 1 ХЕ</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section: AI Provider (OpenRouter) -->
-        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">🤖 ИИ-распознавание (OpenRouter)</div>
-
-          <div class="form-group">
-            <label class="form-label">OpenRouter API Key</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="settingOpenRouterKey" class="form-input" placeholder="sk-or-v1-..." />
-              <button class="btn-secondary" id="testOpenRouterKeyBtn" style="width:auto;white-space:nowrap;padding:10px 14px;font-size:12px;" onclick="window.app.testOpenRouterKey()">
-                Проверить
-              </button>
-            </div>
-            <span style="font-size:10px;color:var(--text-dim);">
-              OpenRouter доступен в РФ <b>напрямую без VPN</b>. Регистрация: <a href="https://openrouter.ai" target="_blank" style="color:var(--color-protein);text-decoration:underline;">openrouter.ai</a>.
-            </span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Модель ИИ</label>
-            <select id="settingOpenRouterModel" class="form-input">
-              <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Рекомендуется — быстрая и дешевая)</option>
-              <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (Высокая точность)</option>
-              <option value="particle-ai/particle-1:free">Particle 1 (Бесплатная: :free)</option>
-            </select>
-          </div>
-        </div>
+        </details>
 
         <button class="btn-primary" onclick="window.app.saveSettings()">
           Сохранить настройки
@@ -514,11 +513,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v15)
+          🔄 Сбросить кэш и обновить (v16)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v15 · OpenRouter Edition
+          NutriTrack v16 · Чистый интерфейс
         </div>
       </div>
     </div>
@@ -587,11 +586,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=15"></script>
-  <script src="./js/camera.js?v=15"></script>
-  <script src="./js/gemini.js?v=15"></script>
-  <script src="./js/voice.js?v=15"></script>
-  <script src="./js/app.js?v=15"></script>
+  <script src="./js/storage.js?v=16"></script>
+  <script src="./js/camera.js?v=16"></script>
+  <script src="./js/gemini.js?v=16"></script>
+  <script src="./js/voice.js?v=16"></script>
+  <script src="./js/app.js?v=16"></script>
 
 </body>
 </html>

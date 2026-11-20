@@ -16,7 +16,7 @@ class NutriApp {
   async init() {
     // Register Service Worker for PWA capabilities
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=15')
+      navigator.serviceWorker.register('./sw.js?v=16')
         .then((reg) => {
           console.log('Service Worker registered');
           try { reg.update(); } catch (e) {}
