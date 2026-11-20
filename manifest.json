@@ -1,0 +1,24 @@
+{
+  "name": "NutriTrack — Калории, КБЖУ и ХЕ",
+  "short_name": "NutriTrack",
+  "description": "Минималистичный трекер калорий, КБЖУ и Хлебных Единиц по фото с ИИ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

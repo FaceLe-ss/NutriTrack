@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>NutriTrack — Калории, КБЖУ и ХЕ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090d16">
+  
+  <!-- Apple iOS PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NutriTrack">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+  
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div>
+        <p class="date-subtitle" id="currentDateLabel">Загрузка даты...</p>
+        <h1 class="header-title">Дневник питания</h1>
+      </div>
+      <!-- Header Right Action Buttons -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <!-- History & Search Button -->
+        <button class="icon-btn" onclick="window.app.openHistoryModal()" aria-label="История и поиск" title="История и поиск">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+
+        <!-- Profile & Settings Button -->
+        <button class="icon-btn" onclick="window.app.openSettingsModal()" aria-label="Настройки и профиль" title="Профиль и настройки">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Content -->
+    <main class="app-content">
+
+      <!-- Date Navigator Bar -->
+      <div class="date-navigator">
+        <button class="date-nav-btn" onclick="window.app.changeDate(-1)" aria-label="Предыдущий день">❮</button>
+        <div class="date-nav-label" onclick="window.app.openDatePicker()">
+          <span id="dateNavText">Сегодня, 19 ноября</span>
+          <span id="dateNavTodayBadge" class="date-nav-today-badge">СЕГОДНЯ</span>
+          <input type="date" id="hiddenDatePicker" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" onchange="window.app.onDatePicked(this.value)" />
+        </div>
+        <button class="date-nav-btn" onclick="window.app.changeDate(1)" aria-label="Следующий день">❯</button>
+      </div>
+
+      <!-- SECTION 1: Calorie Ring Gauge -->
+      <section class="card calorie-gauge-card">
+        <div class="gauge-wrapper">
+          <svg class="gauge-svg" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" stroke-width="9" class="gauge-bg-circle" />
+            <circle id="gaugeCircleProgress" cx="60" cy="60" r="50" stroke-width="9" class="gauge-progress-circle" />
+          </svg>
+          <div class="gauge-inner-text">
+            <span class="gauge-remaining-num" id="gaugeRemainingNumber">0</span>
+            <span class="gauge-remaining-label" id="gaugeRemainingLabel">осталось</span>
+          </div>
+        </div>
+
+        <div class="gauge-stats">
+          <div>
+            <div class="stat-item-label">Употреблено</div>
+            <div class="stat-item-val"><span id="gaugeConsumedNumber">0</span> <small>ккал</small></div>
+          </div>
+          <div class="divider"></div>
+          <div>
+            <div class="stat-item-label">Дневная цель</div>
+            <div class="stat-item-val"><span id="gaugeTargetNumber">2 100</span> <small>ккал</small></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: Macros (КБЖУ) -->
+      <section>
+        <div class="section-header">
+          <span class="section-title">Макронутриенты</span>
+          <span class="section-title" style="font-weight:400;text-transform:none;">норма на день</span>
+        </div>
+        
+        <div class="macros-grid">
+          <!-- Белки -->
+          <div class="macro-box">
+            <div class="macro-box-header">
+              <span style="color:var(--color-protein);">Белки</span>
+              <span id="proteinPercent" style="color:var(--text-muted);font-size:10px;">0%</span>
+            </div>
+            <div class="macro-box-val" id="proteinCurrentVal">0 / 140г</div>
+            <div class="macro-bar-track">
+              <div id="proteinBarFill" class="macro-bar-fill" style="background-color:var(--color-protein);width:0%;"></div>
+            </div>
+          </div>
+
+          <!-- Жиры -->
+          <div class="macro-box">
+            <div class="macro-box-header">
+              <span style="color:var(--color-fat);">Жиры</span>
+              <span id="fatPercent" style="color:var(--text-muted);font-size:10px;">0%</span>
+            </div>
+            <div class="macro-box-val" id="fatCurrentVal">0 / 70г</div>
+            <div class="macro-bar-track">
+              <div id="fatBarFill" class="macro-bar-fill" style="background-color:var(--color-fat);width:0%;"></div>
+            </div>
+          </div>
+
+          <!-- Углеводы -->
+          <div class="macro-box">
+            <div class="macro-box-header">
+              <span style="color:var(--color-carbs);">Углеводы</span>
+              <span id="carbsPercent" style="color:var(--text-muted);font-size:10px;">0%</span>
+            </div>
+            <div class="macro-box-val" id="carbsCurrentVal">0 / 220г</div>
+            <div class="macro-bar-track">
+              <div id="carbsBarFill" class="macro-bar-fill" style="background-color:var(--color-carbs);width:0%;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2.5: Bread Units (ХЕ) Total Banner -->
+      <section class="xe-banner">
+        <div class="xe-left">
+          <div class="xe-icon-badge">🍞</div>
+          <div>
+            <div class="xe-title">Хлебные Единицы за день</div>
+            <div class="xe-formula">1 ХЕ = 10 г чистых углеводов</div>
+          </div>
+        </div>
+        <div class="xe-count" id="todayTotalXE">0 ХЕ</div>
+      </section>
+
+      <!-- SECTION 3: Today's Meals List -->
+      <section class="meals-section">
+        <div class="section-header">
+          <span class="section-title">Приемы пищи сегодня</span>
+          <span class="section-title" id="mealsCountLabel" style="font-weight:400;text-transform:none;">0 блюд</span>
+        </div>
+
+        <div id="mealsContainer">
+          <!-- Dynamically populated by app.js -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Sticky Action Dock (Camera / Voice / Manual) -->
+    <div class="dock-wrapper">
+      <div class="dock">
+        <!-- Voice Input -->
+        <button class="dock-btn-side" onclick="window.app.triggerVoiceInput()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+          <span>Голос</span>
+        </button>
+
+        <!-- Main Hero: Photo Scan -->
+        <button class="dock-btn-hero" onclick="window.app.triggerPhotoCapture()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>Снять фото</span>
+        </button>
+
+        <!-- Manual Add -->
+        <button class="dock-btn-side" onclick="window.app.openManualInputModal()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          <span>Вручную</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Hidden Native Camera Input for iOS -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" />
+
+    <!-- MODAL 1: Scan Verification & Confirmation -->
+    <div class="modal-overlay" id="verifyModalOverlay">
+      <div class="bottom-sheet">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2 class="sheet-title">Результат распознавания</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeVerifyModal()">✕</button>
+        </div>
+
+        <div id="scanPhotoPreview" style="display:none;"></div>
+
+        <div class="form-group">
+          <label class="form-label">Название блюда</label>
+          <input type="text" id="scanDishNameInput" class="form-input" placeholder="Название блюда" />
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Вес порции (г)</label>
+            <input type="number" id="scanWeightInput" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Калории (ккал)</label>
+            <input type="number" id="scanCaloriesInput" class="form-input" style="font-weight:700;color:var(--color-calories);" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+          <div class="form-group">
+            <label class="form-label">Белки (г)</label>
+            <input type="number" id="scanProteinInput" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Жиры (г)</label>
+            <input type="number" id="scanFatInput" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Углеводы (г)</label>
+            <input type="number" id="scanCarbsInput" class="form-input" />
+          </div>
+        </div>
+
+        <!-- Calculated XE Widget in Verification Modal -->
+        <div style="background-color:rgba(249, 115, 22, 0.12);border:1px solid rgba(249, 115, 22, 0.3);border-radius:14px;padding:12px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--color-xe);">Хлебные Единицы блюда</div>
+            <div style="font-size:10px;color:var(--text-muted);">Рассчитано по формуле (Углеводы / 10)</div>
+          </div>
+          <div id="scanBreadUnitsDisplay" style="font-size:20px;font-weight:900;color:var(--color-xe);">0 ХЕ</div>
+        </div>
+
+        <!-- Editable User Comment in Verification Modal -->
+        <div class="form-group">
+          <label class="form-label">Комментарий / Заметка к блюду</label>
+          <textarea id="scanCommentInput" class="form-input" rows="2" placeholder="Например: съел 2/3, уколол 3 ед. инсулина, кофе без сахара..."></textarea>
+        </div>
+
+        <div id="scanCommentBox" style="display:none;font-size:11px;color:var(--text-muted);background:var(--bg-primary);border-radius:12px;padding:10px;line-height:1.4;"></div>
+
+        <button class="btn-primary" onclick="window.app.saveVerifiedMeal()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Записать в дневник</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MODAL 2: Meal Detail & Edit -->
+    <div class="modal-overlay" id="mealDetailModalOverlay">
+      <div class="bottom-sheet">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2 class="sheet-title" id="detailMealName">Детали блюда</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeMealDetailModal()">✕</button>
+        </div>
+
+        <img id="detailMealPhoto" src="" alt="Фото блюда" style="display:none;width:100%;height:180px;object-fit:cover;border-radius:16px;border:1px solid var(--border-color);" />
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-color);">
+          <div id="detailMealMeta" style="font-size:13px;color:var(--text-muted);">Завтрак · 09:15 · 320г</div>
+          <div id="detailMealCalories" style="font-size:18px;font-weight:800;color:var(--color-calories);">420 ккал</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;text-align:center;">
+          <div style="background:var(--bg-primary);border-radius:12px;padding:8px;">
+            <div style="font-size:10px;color:var(--text-muted);">Белки</div>
+            <div id="detailMealProtein" style="font-weight:700;font-size:14px;color:var(--color-protein);">0г</div>
+          </div>
+          <div style="background:var(--bg-primary);border-radius:12px;padding:8px;">
+            <div style="font-size:10px;color:var(--text-muted);">Жиры</div>
+            <div id="detailMealFat" style="font-weight:700;font-size:14px;color:var(--color-fat);">0г</div>
+          </div>
+          <div style="background:var(--bg-primary);border-radius:12px;padding:8px;">
+            <div style="font-size:10px;color:var(--text-muted);">Углеводы</div>
+            <div id="detailMealCarbs" style="font-weight:700;font-size:14px;color:var(--color-carbs);">0г</div>
+          </div>
+          <div style="background:rgba(249, 115, 22, 0.15);border:1px solid rgba(249, 115, 22, 0.3);border-radius:12px;padding:8px;">
+            <div style="font-size:10px;color:var(--color-xe);font-weight:700;">ХЕ</div>
+            <div id="detailMealXE" style="font-weight:800;font-size:14px;color:var(--color-xe);">0 ХЕ</div>
+          </div>
+        </div>
+
+        <!-- Editable User Comment in Detail Modal -->
+        <div class="form-group" style="margin-top:6px;">
+          <label class="form-label">Комментарий / Заметка</label>
+          <textarea id="detailMealCommentInput" class="form-input" rows="2" placeholder="Добавьте или измените комментарий..."></textarea>
+        </div>
+
+        <button class="btn-primary" style="padding:11px;font-size:13px;" onclick="window.app.saveCurrentMealComment()">
+          💾 Сохранить комментарий
+        </button>
+
+        <button class="btn-secondary" style="color:#ef4444;border-color:rgba(239, 68, 68, 0.3);margin-top:4px;" onclick="window.app.deleteCurrentMeal()">
+          Удалить из дневника
+        </button>
+      </div>
+    </div>
+
+    <!-- MODAL 3: Manual / AI Text Input -->
+    <div class="modal-overlay" id="manualModalOverlay">
+      <div class="bottom-sheet">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2 class="sheet-title">Добавить блюдо</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeManualModal()">✕</button>
+        </div>
+
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.4;">
+          Опишите съеденное простыми словами или используйте диктовку на клавиатуре iPhone. ИИ сам определит граммовки, КБЖУ и ХЕ.
+        </p>
+
+        <div class="form-group">
+          <textarea id="manualTextInput" class="form-input" rows="4" placeholder="Например: две сосиски с гречкой грамм 200 и чашка чая с ложкой сахара..."></textarea>
+        </div>
+
+        <button class="btn-primary" onclick="window.app.submitManualText()">
+          Рассчитать с помощью ИИ
+        </button>
+      </div>
+    </div>
+
+    <!-- MODAL 4: Voice Listening Overlay -->
+    <div class="modal-overlay" id="voiceModalOverlay">
+      <div class="bottom-sheet" style="text-align:center;align-items:center;">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header" style="width:100%;">
+          <h2 class="sheet-title">Голосовой ввод</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.cancelVoiceRecording()">✕</button>
+        </div>
+
+        <!-- Big Clickable Microphone Toggle Button -->
+        <button id="voiceMicHeroBtn" class="voice-mic-hero" onclick="window.app.toggleVoiceRecording()" aria-label="Включить / Выключить микрофон">
+          <svg id="voiceMicSvg" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+        </button>
+
+        <div id="voiceStatusLabel" style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">
+          Нажмите на микрофон для записи
+        </div>
+
+        <!-- Live Editable Text Area -->
+        <div class="form-group" style="width:100%;margin-top:14px;">
+          <textarea id="voiceTranscriptInput" class="form-input" rows="3" placeholder="Здесь появится ваш голос, или надиктуйте через микрофон на клавиатуре iPhone..."></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex;gap:8px;width:100%;margin-top:4px;">
+          <button class="btn-secondary" style="flex:1;" onclick="window.app.cancelVoiceRecording()">
+            Отмена
+          </button>
+          <button id="voiceSubmitBtn" class="btn-primary" style="flex:2;" onclick="window.app.submitVoiceText()">
+            ⚡ Рассчитать блюдо
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 5: Loading / AI Spinner -->
+    <div class="modal-overlay" id="loadingModalOverlay">
+      <div class="bottom-sheet" style="align-items:center;text-align:center;">
+        <div class="loading-pulse">
+          <div class="spinner"></div>
+          <div>
+            <div id="loadingTitle" style="font-size:16px;font-weight:800;">Анализ блюда...</div>
+            <div id="loadingSubtitle" style="font-size:12px;color:var(--text-muted);margin-top:4px;">ИИ вычисляет калории, макронутриенты и ХЕ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 6: Profile & Settings -->
+    <div class="modal-overlay" id="settingsModalOverlay">
+      <div class="bottom-sheet">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2 class="sheet-title">Профиль и настройки</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeSettingsModal()">✕</button>
+        </div>
+
+        <div id="settingsNoticeBox" style="display:none;background-color:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.3);color:#ef4444;font-size:11px;padding:10px;border-radius:12px;"></div>
+
+        <!-- Section: User Profile -->
+        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--color-calories);text-transform:uppercase;letter-spacing:0.05em;">👤 Личный профиль</div>
+          
+          <div class="form-group">
+            <label class="form-label">Ваше имя</label>
+            <input type="text" id="settingUserName" class="form-input" placeholder="Например: Виталий" />
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">Рост (см)</label>
+              <input type="number" id="settingUserHeight" class="form-input" placeholder="178" oninput="window.app.onProfileChange()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Вес (кг)</label>
+              <input type="number" id="settingUserWeight" class="form-input" placeholder="75" oninput="window.app.onProfileChange()" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <label class="form-label">Суточная норма калорий (ккал)</label>
+              <button type="button" onclick="window.app.autoCalculateCalories()" style="background:none;border:none;color:var(--color-protein);font-size:11px;font-weight:700;cursor:pointer;padding:0;">
+                ⚡ Рассчитать по росту и весу
+              </button>
+            </div>
+            <input type="number" id="settingTargetCalories" class="form-input" value="2100" style="font-size:16px;font-weight:800;color:var(--color-calories);" />
+          </div>
+
+          <!-- Theme selector -->
+          <div class="form-group">
+            <label class="form-label">Тема оформления</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--bg-surface-elevated);padding:4px;border-radius:14px;">
+              <button type="button" id="themeDarkBtn" onclick="window.app.setTheme('dark')" style="padding:8px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s ease;">
+                🌙 Тёмная
+              </button>
+              <button type="button" id="themeLightBtn" onclick="window.app.setTheme('light')" style="padding:8px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s ease;">
+                ☀️ Светлая
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Macros & XE -->
+        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--color-carbs);text-transform:uppercase;letter-spacing:0.05em;">🎯 Цели КБЖУ и Хлебных Единиц</div>
+
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+            <div class="form-group">
+              <label class="form-label">Белки (г)</label>
+              <input type="number" id="settingTargetProtein" class="form-input" value="140" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Жиры (г)</label>
+              <input type="number" id="settingTargetFat" class="form-input" value="70" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Углеводы (г)</label>
+              <input type="number" id="settingTargetCarbs" class="form-input" value="220" />
+            </div>
+          </div>
+
+          <!-- XE Ratio Setting -->
+          <div class="form-group">
+            <label class="form-label">Коэффициент Хлебной Единицы (ХЕ)</label>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <input type="number" id="settingXeRatio" class="form-input" style="width:90px;" value="10" />
+              <span style="font-size:11px;color:var(--text-muted);">граммов углеводов в 1 ХЕ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: AI Provider & No-VPN Settings -->
+        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">🤖 ИИ-распознавание (Работа без VPN)</div>
+
+          <!-- Provider Switcher -->
+          <div class="form-group">
+            <label class="form-label">Провайдер ИИ</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg-surface-elevated);padding:3px;border-radius:12px;">
+              <button type="button" id="providerGeminiBtn" onclick="window.app.switchProvider('gemini')" style="padding:8px 6px;border-radius:9px;border:none;font-size:11px;font-weight:700;cursor:pointer;">
+                🌐 Google Gemini
+              </button>
+              <button type="button" id="providerOpenRouterBtn" onclick="window.app.switchProvider('openrouter')" style="padding:8px 6px;border-radius:9px;border:none;font-size:11px;font-weight:700;cursor:pointer;">
+                ⚡ OpenRouter (Без VPN)
+              </button>
+            </div>
+          </div>
+
+          <!-- Gemini Settings Panel -->
+          <div id="geminiSettingsPanel" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">Google Gemini API Key</label>
+              <div style="display:flex;gap:8px;">
+                <input type="password" id="settingApiKey" class="form-input" placeholder="AIzaSy..." />
+                <button class="btn-secondary" id="testKeyBtn" style="width:auto;white-space:nowrap;padding:10px 14px;font-size:12px;" onclick="window.app.testGeminiKey()">
+                  Проверить
+                </button>
+              </div>
+              <span style="font-size:10px;color:var(--text-dim);">Бесплатный ключ на aistudio.google.com.</span>
+            </div>
+
+            <!-- Cloudflare Proxy URL (Bypasses Google RU block without VPN) -->
+            <div class="form-group">
+              <label class="form-label" style="display:flex;justify-content:space-between;">
+                <span>Прокси URL (для работы без VPN)</span>
+                <span style="color:var(--color-calories);font-size:10px;font-weight:700;">Рекомендуется</span>
+              </label>
+              <input type="url" id="settingGeminiProxy" class="form-input" placeholder="https://your-worker.workers.dev" />
+              <span style="font-size:10px;color:var(--text-dim);">
+                Бесплатный Cloudflare Worker пересылает запросы в Google из США/Европы без VPN (инструкция в файле cloudflare_worker.js).
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Модель ИИ</label>
+              <select id="settingModel" class="form-input">
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Рекомендуется — быстрая и актуальная)</option>
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash (Максимальная точность)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- OpenRouter Settings Panel (100% No VPN from Russia) -->
+          <div id="openRouterSettingsPanel" style="display:none;flex-direction:column;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">OpenRouter API Key</label>
+              <div style="display:flex;gap:8px;">
+                <input type="password" id="settingOpenRouterKey" class="form-input" placeholder="sk-or-v1-..." />
+                <button class="btn-secondary" id="testOpenRouterKeyBtn" style="width:auto;white-space:nowrap;padding:10px 14px;font-size:12px;" onclick="window.app.testOpenRouterKey()">
+                  Проверить
+                </button>
+              </div>
+              <span style="font-size:10px;color:var(--text-dim);">
+                OpenRouter доступен в РФ <b>напрямую без VPN</b>. Регистрация бесплатна на <a href="https://openrouter.ai" target="_blank" style="color:var(--color-protein);text-decoration:underline;">openrouter.ai</a>.
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Модель на OpenRouter</label>
+              <select id="settingOpenRouterModel" class="form-input">
+                <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Бесплатная: :free)</option>
+                <option value="google/gemini-flash-1.5">Gemini 1.5 Flash</option>
+                <option value="meta-llama/llama-3.2-11b-vision-instruct:free">Llama 3.2 Vision 11B (Бесплатная)</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        <button class="btn-primary" onclick="window.app.saveSettings()">
+          Сохранить настройки
+        </button>
+
+        <div class="divider" style="margin:8px 0;"></div>
+
+        <!-- Data Export & Reset -->
+        <div style="display:flex;gap:8px;">
+          <button class="btn-secondary" style="flex:1;font-size:12px;" onclick="window.app.exportData()">
+            Экспорт данных (JSON)
+          </button>
+          <button class="btn-secondary" style="flex:1;font-size:12px;color:#ef4444;border-color:rgba(239, 68, 68, 0.2);" onclick="window.app.clearHistory()">
+            Очистить историю
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 7: History & Search -->
+    <div class="modal-overlay" id="historyModalOverlay">
+      <div class="bottom-sheet" style="max-height:90vh;">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2 class="sheet-title">История и поиск</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeHistoryModal()">✕</button>
+        </div>
+
+        <!-- Search Input Bar -->
+        <div class="form-group">
+          <input type="search" id="historySearchInput" class="form-input" placeholder="🔍 Начните вводить название блюда или ингредиента..." oninput="window.app.onHistorySearch()" />
+        </div>
+
+        <!-- Filter Chips: Meal Types -->
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Тип приема пищи</div>
+          <div class="filter-chips-container" id="historyTypeFilters">
+            <button class="filter-chip active" data-type="Все" onclick="window.app.setHistoryTypeFilter('Все', this)">Все блюда</button>
+            <button class="filter-chip" data-type="Завтрак" onclick="window.app.setHistoryTypeFilter('Завтрак', this)">🥣 Завтрак</button>
+            <button class="filter-chip" data-type="Обед" onclick="window.app.setHistoryTypeFilter('Обед', this)">🥗 Обед</button>
+            <button class="filter-chip" data-type="Перекус" onclick="window.app.setHistoryTypeFilter('Перекус', this)">☕ Перекус</button>
+            <button class="filter-chip" data-type="Ужин" onclick="window.app.setHistoryTypeFilter('Ужин', this)">🍲 Ужин</button>
+          </div>
+        </div>
+
+        <!-- Filter Chips: Period -->
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Период</div>
+          <div class="filter-chips-container" id="historyPeriodFilters">
+            <button class="filter-chip active" data-period="all" onclick="window.app.setHistoryPeriodFilter('all', this)">Всё время</button>
+            <button class="filter-chip" data-period="7days" onclick="window.app.setHistoryPeriodFilter('7days', this)">За 7 дней</button>
+            <button class="filter-chip" data-period="30days" onclick="window.app.setHistoryPeriodFilter('30days', this)">За 30 дней</button>
+          </div>
+        </div>
+
+        <!-- Search Summary Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:12px;color:var(--text-muted);">
+          <span id="historyResultsCount">Найдено: 0 блюд</span>
+          <span id="historyResultsTotals" style="font-weight:700;color:var(--color-calories);">0 ккал · 0 ХЕ</span>
+        </div>
+
+        <!-- Scrollable Search Results List -->
+        <div id="historyMealsContainer" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:50vh;padding-bottom:10px;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification Banner Card -->
+    <div id="appToast" class="toast-card">
+      <div class="toast-icon-wrapper" id="toastIconWrapper">
+        <span id="toastIcon">⚠️</span>
+      </div>
+      <div class="toast-content">
+        <div class="toast-title" id="toastTitle">Ошибка</div>
+        <div class="toast-message" id="toastMessage"></div>
+      </div>
+      <button type="button" class="toast-close-btn" onclick="window.app.hideToast()" aria-label="Закрыть">✕</button>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="./js/storage.js"></script>
+  <script src="./js/camera.js"></script>
+  <script src="./js/gemini.js"></script>
+  <script src="./js/voice.js"></script>
+  <script src="./js/app.js"></script>
+
+</body>
+</html>
