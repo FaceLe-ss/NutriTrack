@@ -1,12 +1,13 @@
 /**
  * Voice Input Module for NutriTrack PWA
- * Optimized for iOS Safari and mobile browsers with per-session instance recreation
+ * Rock-solid support for iOS Safari, WebKit, and mobile browsers
  */
 
 class NutriVoice {
   constructor() {
     this.recognition = null;
     this.isListening = false;
+    this.isBusy = false;
     this.accumulatedText = '';
     this.baseText = '';
     this.onTextUpdate = null;
@@ -26,23 +27,27 @@ class NutriVoice {
         this.recognition.onerror = null;
         this.recognition.onend = null;
         this.recognition.abort();
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      } catch (e) {}
       this.recognition = null;
     }
     this.isListening = false;
+    this.isBusy = false;
   }
 
   start(onTextUpdate, onStateChange, onError, initialText = '') {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      if (onError) onError('Голосовой ввод не поддерживается данным браузером. Нажмите на микрофон на клавиатуре iPhone при вводе текста.');
+      if (onError) onError('Голосовой ввод через браузер не поддерживается. Нажмите на поле ниже и используйте микрофон на клавиатуре iPhone.');
       return false;
     }
 
-    // Always clean up previous instance so iOS Safari gets a fresh recognition session
+    if (this.isBusy) {
+      return false;
+    }
+
+    // Always ensure clean previous state
     this.cleanup();
+    this.isBusy = true;
 
     this.accumulatedText = initialText ? initialText.trim() : '';
     this.baseText = initialText ? initialText.trim() + ' ' : '';
@@ -54,12 +59,14 @@ class NutriVoice {
       const recognition = new SpeechRecognition();
       recognition.lang = 'ru-RU';
       recognition.interimResults = true;
-      // On iOS Safari, continuous=true can fail or hang; continuous=false with interim is much more reliable
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      recognition.continuous = !isIOS;
       recognition.maxAlternatives = 1;
 
+      // On iOS Safari continuous can cause audio session crash or silent drop
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      recognition.continuous = !isIOS;
+
       recognition.onstart = () => {
+        this.isBusy = false;
         this.isListening = true;
         if (this.onStateChange) this.onStateChange(true);
       };
@@ -87,29 +94,33 @@ class NutriVoice {
 
       recognition.onerror = (event) => {
         console.warn('SpeechRecognition error:', event.error);
+        this.isBusy = false;
+        this.isListening = false;
+
         if (event.error === 'no-speech') {
-          // Normal silence timeout, don't crash
+          if (this.onStateChange) this.onStateChange(false, 'no-speech');
           return;
         }
 
-        this.isListening = false;
-        if (this.onStateChange) this.onStateChange(false);
+        if (this.onStateChange) this.onStateChange(false, event.error);
 
-        let msg = 'Ошибка микрофона.';
+        let msg = 'Ошибка микрофона (' + event.error + ').';
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          msg = 'Доступ к микрофону заблокирован в настройках Safari.';
+          msg = 'Доступ к микрофону заблокирован в Safari. Включите микрофон в настройках сайта или используйте микрофон на клавиатуре iPhone.';
         } else if (event.error === 'network') {
-          msg = 'Ошибка сетевого распознавания речи.';
+          msg = 'Сетевая ошибка распознавания речи Apple. Попробуйте еще раз или используйте клавиатуру.';
         } else if (event.error === 'audio-capture') {
-          msg = 'Микрофон не найден или занят другим приложением.';
+          msg = 'Микрофон недоступен (занят другим приложением).';
         }
 
         if (this.onError) this.onError(msg);
       };
 
       recognition.onend = () => {
+        this.isBusy = false;
         this.isListening = false;
-        if (this.onStateChange) this.onStateChange(false);
+        this.cleanup();
+        if (this.onStateChange) this.onStateChange(false, 'end');
       };
 
       this.recognition = recognition;
@@ -119,26 +130,31 @@ class NutriVoice {
       console.error('SpeechRecognition start failed:', err);
       this.cleanup();
       if (this.onStateChange) this.onStateChange(false);
-      if (onError) onError('Не удалось включить микрофон. Попробуйте еще раз.');
+      if (onError) onError('Не удалось запустить микрофон: ' + (err.message || 'попробуйте еще раз'));
       return false;
     }
   }
 
   stop() {
     this.isListening = false;
+    this.isBusy = false;
     if (this.recognition) {
       try {
         this.recognition.stop();
-      } catch (e) {}
+      } catch (e) {
+        try { this.recognition.abort(); } catch (err) {}
+      }
+      this.cleanup();
     }
-    if (this.onStateChange) this.onStateChange(false);
+    if (this.onStateChange) this.onStateChange(false, 'manual-stop');
     return this.accumulatedText.trim();
   }
 
   abort() {
     this.cleanup();
     this.accumulatedText = '';
-    if (this.onStateChange) this.onStateChange(false);
+    this.baseText = '';
+    if (this.onStateChange) this.onStateChange(false, 'abort');
   }
 }
 

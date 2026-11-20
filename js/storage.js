@@ -16,16 +16,7 @@ class NutriStorage {
       user_height: '',
       user_weight: '',
       theme: 'dark', // 'dark' | 'light'
-      api_provider: 'openrouter', // 'openrouter' | 'gemini'
-      gemini_api_key: (function() {
-        try {
-          return atob('QVEuQWI4Uk42Sk13SmpOVEtRVjJDcW9pWW9kYkh6WGJWUlJzT0hDS1NWd3VRQW8tamVZUFE=');
-        } catch(e) {
-          return '';
-        }
-      })(),
-      gemini_model: 'gemini-3.5-flash-lite',
-      gemini_proxy_url: '', // e.g. https://your-worker.workers.dev
+      api_provider: 'openrouter',
       openrouter_api_key: (function() {
         try {
           return atob('c2stb3ItdjEtZDQzZGE3OTQyZTc1ZjZhY2YzYjhhNWRmNzYwOTU2YTE4ZDZjNDJhYTVlODc1YTdkNTZkYjdiZjI5OTI5OGVlYg==');
@@ -87,19 +78,15 @@ class NutriStorage {
 
       req.onsuccess = () => {
         const res = req.result ? { ...this.defaultSettings, ...req.result.value } : { ...this.defaultSettings };
-        if (!res.gemini_api_key && this.defaultSettings.gemini_api_key) {
-          res.gemini_api_key = this.defaultSettings.gemini_api_key;
-        }
+        
+        // Remove old Gemini fields
+        delete res.gemini_api_key;
+        delete res.gemini_proxy_url;
+        delete res.gemini_model;
+        res.api_provider = 'openrouter';
+
         if (!res.openrouter_api_key && this.defaultSettings.openrouter_api_key) {
           res.openrouter_api_key = this.defaultSettings.openrouter_api_key;
-        }
-        // Switch to openrouter by default to avoid Google location blocks
-        if (res.api_provider === 'gemini' && this.defaultSettings.openrouter_api_key) {
-          res.api_provider = 'openrouter';
-        }
-        // Auto-migrate retired models
-        if (!res.gemini_model || res.gemini_model.includes('1.5') || res.gemini_model.includes('2.0') || res.gemini_model.includes('2.5')) {
-          res.gemini_model = 'gemini-3.5-flash-lite';
         }
         if (!res.openrouter_model || res.openrouter_model.includes('2.0-flash-exp') || res.openrouter_model.includes('1.5')) {
           res.openrouter_model = 'google/gemini-2.5-flash-lite';

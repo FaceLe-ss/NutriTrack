@@ -16,8 +16,11 @@ class NutriApp {
   async init() {
     // Register Service Worker for PWA capabilities
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('Service Worker registered successfully'))
+      navigator.serviceWorker.register('./sw.js?v=15')
+        .then((reg) => {
+          console.log('Service Worker registered');
+          try { reg.update(); } catch (e) {}
+        })
         .catch((err) => console.log('Service Worker registration failed:', err));
     }
 
@@ -517,10 +520,8 @@ class NutriApp {
     if (statusLabel) statusLabel.textContent = 'Нажмите на микрофон для записи';
     if (micBtn) micBtn.classList.remove('recording');
 
+    window.NutriVoice.abort();
     overlay.classList.add('active');
-
-    // Immediately start listening on dock button click (valid user gesture)
-    this.startVoiceSession();
   }
 
   startVoiceSession() {
@@ -529,21 +530,25 @@ class NutriApp {
     const input = document.getElementById('voiceTranscriptInput');
     const currentText = input ? input.value : '';
 
-    if (statusLabel) statusLabel.textContent = 'Слушаю вас... Говорите';
+    if (statusLabel) statusLabel.textContent = '🔴 Слушаю вас... Говорите';
     if (micBtn) micBtn.classList.add('recording');
 
     const started = window.NutriVoice.start(
       (recognizedText) => {
         if (input) input.value = recognizedText;
       },
-      (isListening) => {
+      (isListening, reason) => {
         if (!isListening && micBtn) {
           micBtn.classList.remove('recording');
           if (statusLabel) {
             const hasText = input && input.value.trim();
-            statusLabel.textContent = hasText
-              ? 'Запись остановлена. Нажмите микрофон снова или «Рассчитать блюдо»'
-              : 'Нажмите на микрофон для записи';
+            if (reason === 'no-speech') {
+              statusLabel.textContent = hasText ? 'Пауза речи. Нажмите микрофон, чтобы продолжить' : 'Речь не услышана. Нажмите на микрофон для записи';
+            } else {
+              statusLabel.textContent = hasText
+                ? 'Запись завершена. Нажмите микрофон снова или «Рассчитать блюдо»'
+                : 'Нажмите на микрофон для записи';
+            }
           }
         }
       },
@@ -556,7 +561,7 @@ class NutriApp {
     );
 
     if (!started && statusLabel) {
-      statusLabel.textContent = 'Микрофон недоступен. Надиктуйте через микрофон на клавиатуре.';
+      statusLabel.textContent = 'Микрофон недоступен. Нажмите на поле ввода и надиктуйте через клавиатуру iPhone.';
       input?.focus();
     }
   }
@@ -955,6 +960,26 @@ class NutriApp {
       await this.refreshData();
       this.closeSettingsModal();
       this.showToast('История успешно очищена.');
+    }
+  }
+
+  async forceHardUpdate() {
+    if (confirm('Сбросить кэш и принудительно обновить приложение до последней версии?')) {
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.unregister();
+          }
+        }
+      } catch (e) {
+        console.warn('Cache clear error:', e);
+      }
+      window.location.reload(true);
     }
   }
 

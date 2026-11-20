@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=15">
 </head>
 <body>
 
@@ -356,6 +356,9 @@
         <!-- Live Editable Text Area -->
         <div class="form-group" style="width:100%;margin-top:14px;">
           <textarea id="voiceTranscriptInput" class="form-input" rows="3" placeholder="Здесь появится ваш голос, или надиктуйте через микрофон на клавиатуре iPhone..."></textarea>
+          <button type="button" class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;padding:8px;" onclick="document.getElementById('voiceTranscriptInput').focus()">
+            ⌨️ Надиктовать через клавиатуру iPhone
+          </button>
         </div>
 
         <!-- Action Buttons -->
@@ -509,6 +512,14 @@
             Очистить историю
           </button>
         </div>
+
+        <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
+          🔄 Сбросить кэш и обновить (v15)
+        </button>
+
+        <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
+          NutriTrack v15 · OpenRouter Edition
+        </div>
       </div>
     </div>
 
@@ -576,11 +587,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js"></script>
-  <script src="./js/camera.js"></script>
-  <script src="./js/gemini.js"></script>
-  <script src="./js/voice.js"></script>
-  <script src="./js/app.js"></script>
+  <script src="./js/storage.js?v=15"></script>
+  <script src="./js/camera.js?v=15"></script>
+  <script src="./js/gemini.js?v=15"></script>
+  <script src="./js/voice.js?v=15"></script>
+  <script src="./js/app.js?v=15"></script>
 
 </body>
 </html>
