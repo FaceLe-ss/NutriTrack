@@ -798,7 +798,7 @@ class NutriApp {
 
     // OpenRouter
     document.getElementById('settingOpenRouterKey').value = settings.openrouter_api_key || '';
-    document.getElementById('settingOpenRouterModel').value = settings.openrouter_model || 'google/gemini-2.0-flash-exp:free';
+    document.getElementById('settingOpenRouterModel').value = settings.openrouter_model || 'google/gemini-2.5-flash-lite';
 
     const noticeBox = document.getElementById('settingsNoticeBox');
     if (noticeMsg) {

@@ -275,92 +275,108 @@ class NutriGemini {
 
   // --- OPENROUTER HANDLERS (NO VPN NEEDED FROM RUSSIA) ---
 
-  async analyzeWithOpenRouterImage(base64Image, mimeType, userNotes, settings, xeRatio) {
+  async executeOpenRouterCall(model, apiKey, messages) {
+    const response = await fetch(this.openRouterHost, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://nutritrack.app',
+        'X-Title': 'NutriTrack PWA'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        temperature: 0.2
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let msg = errText;
+      try {
+        const j = JSON.parse(errText);
+        msg = j.error?.message || errText;
+      } catch (e) {}
+      const err = new Error(`Ошибка OpenRouter (${response.status}): ${msg}`);
+      err.status = response.status;
+      err.rawMessage = msg;
+      throw err;
+    }
+
+    return await response.json();
+  }
+
+  async callOpenRouterWithFallback(messages, settings) {
     const apiKey = (settings.openrouter_api_key || '').trim();
     if (!apiKey) {
       throw new Error('API-ключ OpenRouter не указан. Зарегистрируйтесь на openrouter.ai и вставьте ключ.');
     }
 
-    const model = settings.openrouter_model || 'google/gemini-2.0-flash-exp:free';
+    const preferred = settings.openrouter_model || 'google/gemini-2.5-flash-lite';
+    const fallbackList = [
+      'google/gemini-2.5-flash-lite',
+      'google/gemini-2.5-flash',
+      'particle-ai/particle-1:free'
+    ];
+    const modelsToTry = [preferred, ...fallbackList.filter(m => m !== preferred)];
+
+    let lastError = null;
+    for (const model of modelsToTry) {
+      try {
+        const data = await this.executeOpenRouterCall(model, apiKey, messages);
+        if (model !== preferred) {
+          console.log(`Auto-switched OpenRouter model to ${model}`);
+          window.NutriStorage.saveSettings({ openrouter_model: model }).catch(() => {});
+        }
+        return data;
+      } catch (err) {
+        lastError = err;
+        const msg = err.rawMessage || err.message || '';
+        if (err.status === 404 || err.status === 429 || msg.includes('rate-limited') || msg.includes('no longer available')) {
+          console.warn(`Model ${model} unavailable on OpenRouter, trying next...`);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError;
+  }
+
+  async analyzeWithOpenRouterImage(base64Image, mimeType, userNotes, settings, xeRatio) {
     const promptText = `Определи блюдо на фотографии. ${userNotes ? 'Уточнение: ' + userNotes : ''}
 Оцени вес порции в граммах, калории, белки, жиры, углеводы и рассчитай Хлебные Единицы (1 ХЕ = ${xeRatio}г углеводов).`;
 
-    const requestBody = {
-      model: model,
-      messages: [
-        { role: 'system', content: this.getSystemPrompt(xeRatio) },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: promptText },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${base64Image}`
-              }
+    const messages = [
+      { role: 'system', content: this.getSystemPrompt(xeRatio) },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: promptText },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${base64Image}`
             }
-          ]
-        }
-      ],
-      temperature: 0.2
-    };
+          }
+        ]
+      }
+    ];
 
-    const response = await fetch(this.openRouterHost, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://nutritrack.app',
-        'X-Title': 'NutriTrack PWA'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Ошибка OpenRouter API (${response.status}): ${errText}`);
-    }
-
-    const data = await response.json();
+    const data = await this.callOpenRouterWithFallback(messages, settings);
     return this.parseOpenRouterResponse(data, xeRatio);
   }
 
   async analyzeWithOpenRouterText(userSpeechText, settings, xeRatio) {
-    const apiKey = (settings.openrouter_api_key || '').trim();
-    if (!apiKey) {
-      throw new Error('API-ключ OpenRouter не указан. Вставьте ключ в настройках.');
-    }
-
-    const model = settings.openrouter_model || 'google/gemini-2.0-flash-exp:free';
     const promptText = `Пользователь описал, что он съел: "${userSpeechText}".
 Определи блюда, оцени средний вес порции, рассчитай калории, БЖУ и Хлебные Единицы (1 ХЕ = ${xeRatio}г углеводов).`;
 
-    const requestBody = {
-      model: model,
-      messages: [
-        { role: 'system', content: this.getSystemPrompt(xeRatio) },
-        { role: 'user', content: promptText }
-      ],
-      temperature: 0.2
-    };
+    const messages = [
+      { role: 'system', content: this.getSystemPrompt(xeRatio) },
+      { role: 'user', content: promptText }
+    ];
 
-    const response = await fetch(this.openRouterHost, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://nutritrack.app',
-        'X-Title': 'NutriTrack PWA'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Ошибка OpenRouter API (${response.status}): ${errText}`);
-    }
-
-    const data = await response.json();
+    const data = await this.callOpenRouterWithFallback(messages, settings);
     return this.parseOpenRouterResponse(data, xeRatio);
   }
 
@@ -468,23 +484,46 @@ class NutriGemini {
   }
 
   async testOpenRouterKey(keyToTest) {
-    const response = await fetch(this.openRouterHost, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${keyToTest.trim()}`
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
-        messages: [{ role: 'user', content: 'Say OK' }]
-      })
-    });
+    const modelsToTry = ['google/gemini-2.5-flash-lite', 'google/gemini-2.5-flash', 'particle-ai/particle-1:free'];
+    let lastErr = null;
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error('Ошибка проверки OpenRouter ключа: ' + err);
+    for (const model of modelsToTry) {
+      try {
+        const response = await fetch(this.openRouterHost, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${keyToTest.trim()}`,
+            'HTTP-Referer': 'https://nutritrack.app',
+            'X-Title': 'NutriTrack PWA'
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: 'user', content: 'Say OK' }]
+          })
+        });
+
+        if (response.ok) {
+          return true;
+        }
+
+        const errText = await response.text();
+        let msg = errText;
+        try {
+          const j = JSON.parse(errText);
+          msg = j.error?.message || errText;
+        } catch (e) {}
+
+        if (response.status === 404 || response.status === 429) {
+          lastErr = new Error(`Модель ${model}: ${msg}`);
+          continue;
+        }
+        throw new Error('Ошибка проверки OpenRouter: ' + msg);
+      } catch (e) {
+        lastErr = e;
+      }
     }
-    return true;
+    throw lastErr || new Error('Ошибка проверки OpenRouter ключа.');
   }
 }
 
