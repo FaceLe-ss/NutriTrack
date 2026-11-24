@@ -16,7 +16,7 @@ class NutriApp {
   async init() {
     // Register Service Worker for PWA capabilities
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=19')
+      navigator.serviceWorker.register('./sw.js?v=20')
         .then((reg) => {
           console.log('Service Worker registered');
           try { reg.update(); } catch (e) {}
@@ -231,10 +231,10 @@ class NutriApp {
     const summary = await window.NutriStorage.getDaySummary(this.currentDateStr);
     this.settings = await window.NutriStorage.getSettings();
 
-    this.renderCalorieGauge(summary);
-    this.renderMacros(summary);
-    this.renderXEBanner(summary);
-    this.renderMealsList(this.todayMeals);
+    try { this.renderCalorieGauge(summary); } catch (e) { console.error('renderCalorieGauge error:', e); }
+    try { this.renderMacros(summary); } catch (e) { console.error('renderMacros error:', e); }
+    try { this.renderXEBanner(summary); } catch (e) { console.error('renderXEBanner error:', e); }
+    try { this.renderMealsList(this.todayMeals); } catch (e) { console.error('renderMealsList error:', e); }
   }
 
   renderCalorieGauge(summary) {
@@ -317,21 +317,30 @@ class NutriApp {
 
     // Protein
     const pctP = Math.min(100, Math.round((curP / targetP) * 100));
-    document.getElementById('proteinCurrentVal').textContent = `${curP} / ${targetP}г`;
-    document.getElementById('proteinPercent').textContent = `${pctP}%`;
-    document.getElementById('proteinBarFill').style.width = `${pctP}%`;
+    const pVal = document.getElementById('proteinCurrentVal');
+    if (pVal) pVal.textContent = `${curP} / ${targetP}г`;
+    const pPct = document.getElementById('proteinPercent');
+    if (pPct) pPct.textContent = `${pctP}%`;
+    const pBar = document.getElementById('proteinBarFill');
+    if (pBar) pBar.style.width = `${pctP}%`;
 
     // Fat
     const pctF = Math.min(100, Math.round((curF / targetF) * 100));
-    document.getElementById('fatCurrentVal').textContent = `${curF} / ${targetF}г`;
-    document.getElementById('fatPercent').textContent = `${pctF}%`;
-    document.getElementById('fatBarFill').style.width = `${pctF}%`;
+    const fVal = document.getElementById('fatCurrentVal');
+    if (fVal) fVal.textContent = `${curF} / ${targetF}г`;
+    const fPct = document.getElementById('fatPercent');
+    if (fPct) fPct.textContent = `${pctF}%`;
+    const fBar = document.getElementById('fatBarFill');
+    if (fBar) fBar.style.width = `${pctF}%`;
 
     // Carbs
     const pctC = Math.min(100, Math.round((curC / targetC) * 100));
-    document.getElementById('carbsCurrentVal').textContent = `${curC} / ${targetC}г`;
-    document.getElementById('carbsPercent').textContent = `${pctC}%`;
-    document.getElementById('carbsBarFill').style.width = `${pctC}%`;
+    const cVal = document.getElementById('carbsCurrentVal');
+    if (cVal) cVal.textContent = `${curC} / ${targetC}г`;
+    const cPct = document.getElementById('carbsPercent');
+    if (cPct) cPct.textContent = `${pctC}%`;
+    const cBar = document.getElementById('carbsBarFill');
+    if (cBar) cBar.style.width = `${pctC}%`;
     const carbsXe = document.getElementById('carbsCurrentXE');
     if (carbsXe) {
       carbsXe.textContent = `${summary.bread_units} ХЕ`;

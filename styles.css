@@ -587,6 +587,12 @@ body {
   gap: 10px;
 }
 
+#mealsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .meal-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
