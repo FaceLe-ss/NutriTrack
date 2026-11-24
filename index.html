@@ -233,11 +233,14 @@
 
         <!-- Calculated Insulin Dose Widget in Verification Modal -->
         <div id="scanInsulinCard" style="background-color:rgba(14, 165, 233, 0.12);border:1px solid rgba(14, 165, 233, 0.3);border-radius:14px;padding:12px;display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-          <div>
+          <div style="flex:1;padding-right:8px;">
             <div style="font-size:12px;font-weight:700;color:var(--color-protein);">💉 Рекомендуемый болюс инсулина</div>
-            <div id="scanInsulinFormula" style="font-size:10px;color:var(--text-muted);">Расчет по углеводному коэффициенту</div>
+            <div id="scanInsulinFormula" style="font-size:10px;color:var(--text-muted);line-height:1.3;margin-top:2px;">Расчет по углеводному коэффициенту</div>
           </div>
-          <div id="scanInsulinDisplay" style="font-size:20px;font-weight:900;color:var(--color-protein);">0 ед.</div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <input type="number" step="0.5" id="scanInsulinInput" class="form-input" style="width:75px;font-size:18px;font-weight:900;text-align:center;color:var(--color-protein);padding:6px 4px;" value="0" />
+            <span style="font-size:13px;font-weight:700;color:var(--color-protein);">ед.</span>
+          </div>
         </div>
 
         <!-- Editable User Comment in Verification Modal -->
@@ -550,8 +553,8 @@
             <div class="form-group">
               <label class="form-label">Шаг шприц-ручки / помпы</label>
               <select id="settingInsulinStep" class="form-input" style="font-size:12px;">
-                <option value="0.5">0.5 ед. (детская / с шагом 0.5 или помпа)</option>
-                <option value="1.0">1.0 ед. (стандартная шприц-ручка с шагом 1.0)</option>
+                <option value="0.5">0.5 ед. (детская / с шагом 0.5 ед. или помпа)</option>
+                <option value="1">1.0 ед. (стандартная ручка с шагом 1.0 ед.)</option>
               </select>
             </div>
           </div>
@@ -574,11 +577,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v18)
+          🔄 Сбросить кэш и обновить (v19)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v18 · Быстрая навигация по дням
+          NutriTrack v19 · Точный расчет болюса и ХЕ
         </div>
       </div>
     </div>
@@ -647,11 +650,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=18"></script>
-  <script src="./js/camera.js?v=18"></script>
-  <script src="./js/gemini.js?v=18"></script>
-  <script src="./js/voice.js?v=18"></script>
-  <script src="./js/app.js?v=18"></script>
+  <script src="./js/storage.js?v=19"></script>
+  <script src="./js/camera.js?v=19"></script>
+  <script src="./js/gemini.js?v=19"></script>
+  <script src="./js/voice.js?v=19"></script>
+  <script src="./js/app.js?v=19"></script>
 
 </body>
 </html>

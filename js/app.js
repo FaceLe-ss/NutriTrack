@@ -16,7 +16,7 @@ class NutriApp {
   async init() {
     // Register Service Worker for PWA capabilities
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=18')
+      navigator.serviceWorker.register('./sw.js?v=19')
         .then((reg) => {
           console.log('Service Worker registered');
           try { reg.update(); } catch (e) {}
@@ -728,23 +728,23 @@ class NutriApp {
 
   getInsulinCalculation(breadUnits, mealType = null) {
     if (!this.settings || this.settings.insulin_enabled === false) {
-      return { enabled: false, dose: 0, rawDose: '0', icr: 1.0, periodName: '' };
+      return { enabled: false, dose: 0, rawDose: '0', icr: 1.0, periodName: '', step: 1.0 };
     }
 
     const hour = new Date().getHours();
-    let icr = Number(this.settings.icr_lunch) || 1.2;
+    let icr = Number(this.settings.icr_lunch) || 0.8;
     let periodName = 'Обед';
 
     if (mealType === 'Завтрак' || (!mealType && hour >= 4 && hour < 12)) {
-      icr = Number(this.settings.icr_breakfast) || 1.5;
+      icr = Number(this.settings.icr_breakfast) || 1.0;
       periodName = 'Завтрак';
     } else if (mealType === 'Ужин' || (!mealType && (hour >= 17 || hour < 4))) {
-      icr = Number(this.settings.icr_dinner) || 1.0;
+      icr = Number(this.settings.icr_dinner) || 0.7;
       periodName = 'Ужин';
     }
 
+    const step = Number(this.settings.insulin_step) || 1.0;
     const rawDose = (Number(breadUnits) || 0) * icr;
-    const step = Number(this.settings.insulin_step) || 0.5;
     const roundedDose = Math.round(rawDose / step) * step;
     const dose = Number.isInteger(roundedDose) ? roundedDose.toString() : roundedDose.toFixed(1);
 
@@ -753,7 +753,8 @@ class NutriApp {
       dose,
       rawDose: rawDose.toFixed(1),
       icr,
-      periodName
+      periodName,
+      step
     };
   }
 
@@ -764,7 +765,7 @@ class NutriApp {
     if (xeDisplay) xeDisplay.textContent = `${xe} ХЕ`;
 
     const insulinCard = document.getElementById('scanInsulinCard');
-    const insulinDisplay = document.getElementById('scanInsulinDisplay');
+    const insulinInput = document.getElementById('scanInsulinInput');
     const insulinFormula = document.getElementById('scanInsulinFormula');
 
     if (!this.settings?.insulin_enabled) {
@@ -774,9 +775,12 @@ class NutriApp {
 
     if (insulinCard) insulinCard.style.display = 'flex';
     const calc = this.getInsulinCalculation(xe);
-    if (insulinDisplay) insulinDisplay.textContent = `${calc.dose} ед.`;
+    if (insulinInput) {
+      insulinInput.value = calc.dose;
+      insulinInput.step = calc.step.toString();
+    }
     if (insulinFormula) {
-      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} ед. (шаг ${this.settings?.insulin_step || 0.5})`;
+      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} ед. (округлено с шагом ${calc.step} ед.)`;
     }
   }
 
@@ -842,6 +846,10 @@ class NutriApp {
     const bread_units = Math.round((carbs / xeRatio) * 10) / 10;
     const insulinCalc = this.getInsulinCalculation(bread_units);
 
+    const userDoseInput = document.getElementById('scanInsulinInput');
+    const userDose = userDoseInput ? Number(userDoseInput.value) : null;
+    const finalInsulinDose = (!isNaN(userDose) && userDose !== null && userDose >= 0) ? userDose : (insulinCalc.enabled ? insulinCalc.dose : null);
+
     const mealData = {
       date: this.currentDateStr,
       name,
@@ -851,7 +859,7 @@ class NutriApp {
       fat,
       carbs,
       bread_units,
-      insulin_dose: insulinCalc.enabled ? insulinCalc.dose : null,
+      insulin_dose: insulinCalc.enabled ? finalInsulinDose : null,
       insulin_icr: insulinCalc.enabled ? insulinCalc.icr : null,
       ai_advice: this.tempScanResult?.comment || '',
       comment: userComment,
@@ -984,16 +992,19 @@ class NutriApp {
     if (dailyInsulinInput) dailyInsulinInput.value = settings.total_daily_insulin || 40;
 
     const icrBreakfastInput = document.getElementById('settingIcrBreakfast');
-    if (icrBreakfastInput) icrBreakfastInput.value = settings.icr_breakfast ?? 1.5;
+    if (icrBreakfastInput) icrBreakfastInput.value = settings.icr_breakfast ?? 1.0;
 
     const icrLunchInput = document.getElementById('settingIcrLunch');
-    if (icrLunchInput) icrLunchInput.value = settings.icr_lunch ?? 1.2;
+    if (icrLunchInput) icrLunchInput.value = settings.icr_lunch ?? 0.8;
 
     const icrDinnerInput = document.getElementById('settingIcrDinner');
-    if (icrDinnerInput) icrDinnerInput.value = settings.icr_dinner ?? 1.0;
+    if (icrDinnerInput) icrDinnerInput.value = settings.icr_dinner ?? 0.7;
 
     const insulinStepInput = document.getElementById('settingInsulinStep');
-    if (insulinStepInput) insulinStepInput.value = settings.insulin_step || 0.5;
+    if (insulinStepInput) {
+      const currentStep = Number(settings.insulin_step);
+      insulinStepInput.value = (currentStep === 0.5) ? '0.5' : '1';
+    }
 
     const noticeBox = document.getElementById('settingsNoticeBox');
     if (noticeMsg) {
@@ -1085,10 +1096,10 @@ class NutriApp {
 
     const insulin_enabled = document.getElementById('settingInsulinEnabled') ? document.getElementById('settingInsulinEnabled').checked : true;
     const total_daily_insulin = Number(document.getElementById('settingDailyInsulin')?.value) || 40;
-    const icr_breakfast = Number(document.getElementById('settingIcrBreakfast')?.value) || 1.5;
-    const icr_lunch = Number(document.getElementById('settingIcrLunch')?.value) || 1.2;
-    const icr_dinner = Number(document.getElementById('settingIcrDinner')?.value) || 1.0;
-    const insulin_step = Number(document.getElementById('settingInsulinStep')?.value) || 0.5;
+    const icr_breakfast = Number(document.getElementById('settingIcrBreakfast')?.value) || 1.0;
+    const icr_lunch = Number(document.getElementById('settingIcrLunch')?.value) || 0.8;
+    const icr_dinner = Number(document.getElementById('settingIcrDinner')?.value) || 0.7;
+    const insulin_step = Number(document.getElementById('settingInsulinStep')?.value) || 1.0;
 
     await window.NutriStorage.saveSettings({
       user_name,

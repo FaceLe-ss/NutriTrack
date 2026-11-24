@@ -32,10 +32,10 @@ class NutriStorage {
       xe_ratio: 10, // 1 ХЕ = 10 г углеводов
       insulin_enabled: true,
       total_daily_insulin: 40, // СДИ (суточная доза инсулина), ед.
-      icr_breakfast: 1.5, // УК утро (ед/ХЕ)
-      icr_lunch: 1.2, // УК день (ед/ХЕ)
-      icr_dinner: 1.0, // УК вечер (ед/ХЕ)
-      insulin_step: 0.5 // Шаг округления: 0.5 или 1.0 ед.
+      icr_breakfast: 1.0, // УК утро (ед/ХЕ)
+      icr_lunch: 0.8, // УК день (ед/ХЕ)
+      icr_dinner: 0.7, // УК вечер (ед/ХЕ)
+      insulin_step: 1.0 // Шаг округления: 1.0 или 0.5 ед.
     };
   }
 
