@@ -38,22 +38,13 @@
 
 ## 🔑 Настройка ИИ и работа БЕЗ VPN (в РФ и других регионах)
 
-Google напрямую блокирует запросы к `generativelanguage.googleapis.com` с российских IP-адресов (`User location is not supported`). В NutriTrack встроены **два способа работы 100% без VPN**:
+NutriTrack использует провайдер **OpenRouter**, который работает в РФ и любых регионах напрямую **без всяких VPN и прокси**:
 
-### Вариант 1 (Самый простой — OpenRouter):
-1. Зарегистрируйтесь на сайте [openrouter.ai](https://openrouter.ai/) (сайт и API работают в РФ **без VPN**).
-2. Создайте бесплатный ключ в разделе **Keys**.
-3. В приложении NutriTrack в настройках переключите провайдера на **⚡ OpenRouter (Без VPN)**.
-4. Вставьте ключ и выберите модель `google/gemini-2.0-flash-exp:free` (полностью бесплатная) или `google/gemini-flash-1.5`.
-5. Нажмите кнопку **«Проверить»** и сохраните. Приложение будет работать без единого VPN!
-
-### Вариант 2 (Через свой бесплатный Cloudflare прокси для официального Gemini API):
-1. Зарегистрируйтесь бесплатно на [Cloudflare](https://dash.cloudflare.com/).
-2. Перейдите в **Workers & Pages** → **Create Worker** → **Deploy**.
-3. Нажмите **Edit code**, сотрите содержимое и вставьте готовый код из файла [cloudflare_worker.js](file:///d:/Work/Antigravity/nutritrack-pwa/cloudflare_worker.js). Нажмите **Deploy**.
-4. Скопируйте полученный адрес (например, `https://my-proxy.username.workers.dev`).
-5. В настройках NutriTrack вставьте этот адрес в поле **«Прокси URL (для работы без VPN)»**.
-6. Теперь официальный ключ Gemini работает с любого устройства в любой сети без VPN!
+1. Зарегистрируйтесь на сайте [openrouter.ai](https://openrouter.ai/) (сайт и API работают без VPN).
+2. Создайте ключ в разделе **Keys**.
+3. В приложении NutriTrack в настройках вставьте ключ в поле **«Свой OpenRouter API Key»**.
+4. Выберите рекомендованную быструю и точную модель `google/gemini-2.5-flash-lite` или бесплатную `particle-ai/particle-1:free`.
+5. Нажмите кнопку **«Проверить»** и сохраните. Приложение работает быстро, надежно и без VPN!
 
 ---
 

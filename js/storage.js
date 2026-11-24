@@ -29,7 +29,13 @@ class NutriStorage {
       target_protein: 140,
       target_fat: 70,
       target_carbs: 220,
-      xe_ratio: 10 // 1 ХЕ = 10 г углеводов
+      xe_ratio: 10, // 1 ХЕ = 10 г углеводов
+      insulin_enabled: true,
+      total_daily_insulin: 40, // СДИ (суточная доза инсулина), ед.
+      icr_breakfast: 1.5, // УК утро (ед/ХЕ)
+      icr_lunch: 1.2, // УК день (ед/ХЕ)
+      icr_dinner: 1.0, // УК вечер (ед/ХЕ)
+      insulin_step: 0.5 // Шаг округления: 0.5 или 1.0 ед.
     };
   }
 
@@ -91,6 +97,12 @@ class NutriStorage {
         if (!res.openrouter_model || res.openrouter_model.includes('2.0-flash-exp') || res.openrouter_model.includes('1.5')) {
           res.openrouter_model = 'google/gemini-2.5-flash-lite';
         }
+        if (res.icr_breakfast === undefined) res.icr_breakfast = this.defaultSettings.icr_breakfast;
+        if (res.icr_lunch === undefined) res.icr_lunch = this.defaultSettings.icr_lunch;
+        if (res.icr_dinner === undefined) res.icr_dinner = this.defaultSettings.icr_dinner;
+        if (res.insulin_step === undefined) res.insulin_step = this.defaultSettings.insulin_step;
+        if (res.insulin_enabled === undefined) res.insulin_enabled = this.defaultSettings.insulin_enabled;
+        if (res.total_daily_insulin === undefined) res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
         resolve(res);
       };
 
@@ -158,6 +170,9 @@ class NutriStorage {
       photo: mealData.photo || null, // Base64 compressed preview
       breakdown: mealData.breakdown || [],
       comment: mealData.comment || '',
+      ai_advice: mealData.ai_advice || '',
+      insulin_dose: mealData.insulin_dose || null,
+      insulin_icr: mealData.insulin_icr || null,
       created_at: Date.now()
     };
 

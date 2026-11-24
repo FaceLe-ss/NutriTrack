@@ -237,6 +237,11 @@ class NutriApp {
       consumedElem.style.color = isExceeded ? '#ef4444' : '';
     }
 
+    const gaugeXe = document.getElementById('gaugeConsumedXE');
+    if (gaugeXe) {
+      gaugeXe.textContent = `· ${summary.bread_units} ХЕ`;
+    }
+
     const excessNotice = document.getElementById('gaugeExcessNotice');
     if (excessNotice) {
       if (isExceeded) {
@@ -279,12 +284,16 @@ class NutriApp {
     document.getElementById('carbsCurrentVal').textContent = `${curC} / ${targetC}г`;
     document.getElementById('carbsPercent').textContent = `${pctC}%`;
     document.getElementById('carbsBarFill').style.width = `${pctC}%`;
+    const carbsXe = document.getElementById('carbsCurrentXE');
+    if (carbsXe) {
+      carbsXe.textContent = `${summary.bread_units} ХЕ`;
+    }
   }
 
   renderXEBanner(summary) {
     const xeElem = document.getElementById('todayTotalXE');
     if (xeElem) {
-      xeElem.textContent = `${summary.bread_units} ХЕ`;
+      xeElem.textContent = `${summary.bread_units} ХЕ за день`;
     }
   }
 
@@ -382,14 +391,12 @@ class NutriApp {
       });
     });
 
-    // Auto-recalculate ХЕ when carbs are manually changed in verification modal
+    // Auto-recalculate ХЕ and Insulin when carbs are manually changed in verification modal
     const editCarbsInput = document.getElementById('scanCarbsInput');
     if (editCarbsInput) {
       editCarbsInput.addEventListener('input', (e) => {
         const carbs = Math.max(0, Number(e.target.value) || 0);
-        const xeRatio = Number(this.settings.xe_ratio) || 10;
-        const xe = Number((carbs / xeRatio).toFixed(1));
-        document.getElementById('scanBreadUnitsDisplay').textContent = `${xe} ХЕ`;
+        this.updateVerificationInsulin(carbs);
       });
     }
 
@@ -669,6 +676,62 @@ class NutriApp {
     }
   }
 
+  // --- INSULIN & XE CALCULATION HELPERS ---
+
+  getInsulinCalculation(breadUnits, mealType = null) {
+    if (!this.settings || this.settings.insulin_enabled === false) {
+      return { enabled: false, dose: 0, rawDose: '0', icr: 1.0, periodName: '' };
+    }
+
+    const hour = new Date().getHours();
+    let icr = Number(this.settings.icr_lunch) || 1.2;
+    let periodName = 'Обед';
+
+    if (mealType === 'Завтрак' || (!mealType && hour >= 4 && hour < 12)) {
+      icr = Number(this.settings.icr_breakfast) || 1.5;
+      periodName = 'Завтрак';
+    } else if (mealType === 'Ужин' || (!mealType && (hour >= 17 || hour < 4))) {
+      icr = Number(this.settings.icr_dinner) || 1.0;
+      periodName = 'Ужин';
+    }
+
+    const rawDose = (Number(breadUnits) || 0) * icr;
+    const step = Number(this.settings.insulin_step) || 0.5;
+    const roundedDose = Math.round(rawDose / step) * step;
+    const dose = Number.isInteger(roundedDose) ? roundedDose.toString() : roundedDose.toFixed(1);
+
+    return {
+      enabled: true,
+      dose,
+      rawDose: rawDose.toFixed(1),
+      icr,
+      periodName
+    };
+  }
+
+  updateVerificationInsulin(carbs) {
+    const xeRatio = Number(this.settings?.xe_ratio) || 10;
+    const xe = Math.round((carbs / xeRatio) * 10) / 10;
+    const xeDisplay = document.getElementById('scanBreadUnitsDisplay');
+    if (xeDisplay) xeDisplay.textContent = `${xe} ХЕ`;
+
+    const insulinCard = document.getElementById('scanInsulinCard');
+    const insulinDisplay = document.getElementById('scanInsulinDisplay');
+    const insulinFormula = document.getElementById('scanInsulinFormula');
+
+    if (!this.settings?.insulin_enabled) {
+      if (insulinCard) insulinCard.style.display = 'none';
+      return;
+    }
+
+    if (insulinCard) insulinCard.style.display = 'flex';
+    const calc = this.getInsulinCalculation(xe);
+    if (insulinDisplay) insulinDisplay.textContent = `${calc.dose} ед.`;
+    if (insulinFormula) {
+      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} ед. (шаг ${this.settings?.insulin_step || 0.5})`;
+    }
+  }
+
   // --- VERIFICATION & EDIT MODAL ---
 
   openScanVerificationModal(scanData) {
@@ -682,13 +745,13 @@ class NutriApp {
     document.getElementById('scanFatInput').value = scanData.fat_g || 0;
     document.getElementById('scanCarbsInput').value = scanData.carbs_g || 0;
 
-    // XE display
-    document.getElementById('scanBreadUnitsDisplay').textContent = `${scanData.bread_units || 0} ХЕ`;
+    // Update XE & Insulin displays dynamically
+    this.updateVerificationInsulin(scanData.carbs_g || 0);
 
-    // Editable User Comment in Verification
+    // User Comment field is EMPTY by default per user request, ready for notes
     const commentInput = document.getElementById('scanCommentInput');
     if (commentInput) {
-      commentInput.value = scanData.comment || '';
+      commentInput.value = '';
     }
 
     // Photo preview
@@ -701,7 +764,7 @@ class NutriApp {
       previewContainer.innerHTML = '';
     }
 
-    // Clinical advice comment
+    // Clinical advice comment - displayed in advice box
     const commentBox = document.getElementById('scanCommentBox');
     if (scanData.comment) {
       commentBox.textContent = `💡 ${scanData.comment}`;
@@ -727,6 +790,10 @@ class NutriApp {
     const carbs = Math.max(0, Number(document.getElementById('scanCarbsInput').value) || 0);
     const userComment = document.getElementById('scanCommentInput') ? document.getElementById('scanCommentInput').value.trim() : '';
 
+    const xeRatio = Number(this.settings?.xe_ratio) || 10;
+    const bread_units = Math.round((carbs / xeRatio) * 10) / 10;
+    const insulinCalc = this.getInsulinCalculation(bread_units);
+
     const mealData = {
       date: this.currentDateStr,
       name,
@@ -735,6 +802,10 @@ class NutriApp {
       protein,
       fat,
       carbs,
+      bread_units,
+      insulin_dose: insulinCalc.enabled ? insulinCalc.dose : null,
+      insulin_icr: insulinCalc.enabled ? insulinCalc.icr : null,
+      ai_advice: this.tempScanResult?.comment || '',
       comment: userComment,
       photo: this.tempScanResult?.photoThumbnail || null,
       breakdown: this.tempScanResult?.breakdown || []
@@ -768,6 +839,27 @@ class NutriApp {
     const commentInput = document.getElementById('detailMealCommentInput');
     if (commentInput) {
       commentInput.value = meal.comment || '';
+    }
+
+    // Display recorded insulin bolus if present
+    const insulinRow = document.getElementById('detailMealInsulinRow');
+    const insulinVal = document.getElementById('detailMealInsulinVal');
+    if (meal.insulin_dose) {
+      if (insulinVal) insulinVal.textContent = `${meal.insulin_dose} ед. (УК: ${meal.insulin_icr || '—'})`;
+      if (insulinRow) insulinRow.style.display = 'flex';
+    } else {
+      if (insulinRow) insulinRow.style.display = 'none';
+    }
+
+    // Display AI clinical advice if recorded
+    const adviceBox = document.getElementById('detailMealAdviceBox');
+    if (adviceBox) {
+      if (meal.ai_advice) {
+        adviceBox.textContent = `💡 Подсказка ИИ: ${meal.ai_advice}`;
+        adviceBox.style.display = 'block';
+      } else {
+        adviceBox.style.display = 'none';
+      }
     }
 
     const photoElem = document.getElementById('detailMealPhoto');
@@ -836,6 +928,25 @@ class NutriApp {
     const modelInput = document.getElementById('settingOpenRouterModel');
     if (modelInput) modelInput.value = settings.openrouter_model || 'google/gemini-2.5-flash-lite';
 
+    // Insulin settings
+    const insulinEnabledCheckbox = document.getElementById('settingInsulinEnabled');
+    if (insulinEnabledCheckbox) insulinEnabledCheckbox.checked = settings.insulin_enabled !== false;
+
+    const dailyInsulinInput = document.getElementById('settingDailyInsulin');
+    if (dailyInsulinInput) dailyInsulinInput.value = settings.total_daily_insulin || 40;
+
+    const icrBreakfastInput = document.getElementById('settingIcrBreakfast');
+    if (icrBreakfastInput) icrBreakfastInput.value = settings.icr_breakfast ?? 1.5;
+
+    const icrLunchInput = document.getElementById('settingIcrLunch');
+    if (icrLunchInput) icrLunchInput.value = settings.icr_lunch ?? 1.2;
+
+    const icrDinnerInput = document.getElementById('settingIcrDinner');
+    if (icrDinnerInput) icrDinnerInput.value = settings.icr_dinner ?? 1.0;
+
+    const insulinStepInput = document.getElementById('settingInsulinStep');
+    if (insulinStepInput) insulinStepInput.value = settings.insulin_step || 0.5;
+
     const noticeBox = document.getElementById('settingsNoticeBox');
     if (noticeMsg) {
       noticeBox.textContent = noticeMsg;
@@ -881,6 +992,30 @@ class NutriApp {
     this.showToast(`Рассчитана суточная норма: ${tdee} ккал (Б:${protein}г, Ж:${fat}г, У:${carbs}г)`);
   }
 
+  autoCalculateICR() {
+    const tdd = Number(document.getElementById('settingDailyInsulin')?.value) || 40;
+    if (tdd <= 0) {
+      alert('Пожалуйста, укажите вашу среднюю суточную дозу инсулина (СДИ).');
+      return;
+    }
+
+    // Rule of 500: grams carbs per unit = 500 / TDD.
+    // In XE (10g): units per 1 XE = 10 / (500 / TDD) = TDD / 50
+    const baseIcr = Math.max(0.2, Math.round((tdd / 50) * 10) / 10);
+    const bIcr = Math.max(0.2, Math.round(baseIcr * 1.25 * 10) / 10);
+    const lIcr = Math.max(0.2, Math.round(baseIcr * 1.0 * 10) / 10);
+    const dIcr = Math.max(0.2, Math.round(baseIcr * 0.85 * 10) / 10);
+
+    const bInput = document.getElementById('settingIcrBreakfast');
+    const lInput = document.getElementById('settingIcrLunch');
+    const dInput = document.getElementById('settingIcrDinner');
+    if (bInput) bInput.value = bIcr;
+    if (lInput) lInput.value = lIcr;
+    if (dInput) dInput.value = dIcr;
+
+    this.showToast(`✅ УК рассчитаны: Завтрак ${bIcr}, Обед ${lIcr}, Ужин ${dIcr} ед/ХЕ`);
+  }
+
   closeSettingsModal() {
     document.getElementById('settingsModalOverlay').classList.remove('active');
   }
@@ -900,6 +1035,13 @@ class NutriApp {
     const target_carbs = Math.max(20, Number(document.getElementById('settingTargetCarbs').value) || 220);
     const xe_ratio = Math.max(5, Number(document.getElementById('settingXeRatio').value) || 10);
 
+    const insulin_enabled = document.getElementById('settingInsulinEnabled') ? document.getElementById('settingInsulinEnabled').checked : true;
+    const total_daily_insulin = Number(document.getElementById('settingDailyInsulin')?.value) || 40;
+    const icr_breakfast = Number(document.getElementById('settingIcrBreakfast')?.value) || 1.5;
+    const icr_lunch = Number(document.getElementById('settingIcrLunch')?.value) || 1.2;
+    const icr_dinner = Number(document.getElementById('settingIcrDinner')?.value) || 1.0;
+    const insulin_step = Number(document.getElementById('settingInsulinStep')?.value) || 0.5;
+
     await window.NutriStorage.saveSettings({
       user_name,
       user_height,
@@ -911,7 +1053,13 @@ class NutriApp {
       target_protein,
       target_fat,
       target_carbs,
-      xe_ratio
+      xe_ratio,
+      insulin_enabled,
+      total_daily_insulin,
+      icr_breakfast,
+      icr_lunch,
+      icr_dinner,
+      insulin_step
     });
 
     this.settings = await window.NutriStorage.getSettings();
