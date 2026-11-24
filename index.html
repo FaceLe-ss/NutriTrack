@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css?v=16">
+  <link rel="stylesheet" href="./styles.css?v=22">
 </head>
 <body>
 
@@ -91,17 +91,20 @@
       <section>
         <div class="section-header">
           <span class="section-title">Макронутриенты</span>
-          <span class="section-title" id="todayTotalXE" style="font-weight:700;color:var(--color-xe);text-transform:none;">0 ХЕ за день</span>
+          <div class="macro-xe-pill" title="Хлебные Единицы за день">
+            <span>🏷️</span>
+            <span id="todayTotalXE">0 ХЕ за день</span>
+          </div>
         </div>
         
         <div class="macros-grid">
           <!-- Белки -->
           <div class="macro-box">
             <div class="macro-box-header">
-              <span style="color:var(--color-protein);">Белки</span>
-              <span id="proteinPercent" style="color:var(--text-muted);font-size:10px;">0%</span>
+              <span class="macro-name" style="color:var(--color-protein);">Белки</span>
+              <span id="proteinPercent" class="macro-pct">0%</span>
             </div>
-            <div class="macro-box-val" id="proteinCurrentVal">0 / 140г</div>
+            <div class="macro-box-val" id="proteinCurrentVal">0 <small>/ 140г</small></div>
             <div class="macro-bar-track">
               <div id="proteinBarFill" class="macro-bar-fill" style="background-color:var(--color-protein);width:0%;"></div>
             </div>
@@ -110,10 +113,10 @@
           <!-- Жиры -->
           <div class="macro-box">
             <div class="macro-box-header">
-              <span style="color:var(--color-fat);">Жиры</span>
-              <span id="fatPercent" style="color:var(--text-muted);font-size:10px;">0%</span>
+              <span class="macro-name" style="color:var(--color-fat);">Жиры</span>
+              <span id="fatPercent" class="macro-pct">0%</span>
             </div>
-            <div class="macro-box-val" id="fatCurrentVal">0 / 70г</div>
+            <div class="macro-box-val" id="fatCurrentVal">0 <small>/ 70г</small></div>
             <div class="macro-bar-track">
               <div id="fatBarFill" class="macro-bar-fill" style="background-color:var(--color-fat);width:0%;"></div>
             </div>
@@ -122,13 +125,14 @@
           <!-- Углеводы -->
           <div class="macro-box">
             <div class="macro-box-header">
-              <span style="color:var(--color-carbs);">Углеводы</span>
-              <span id="carbsCurrentXE" style="color:var(--color-xe);font-size:10px;font-weight:700;">0 ХЕ</span>
+              <span class="macro-name" style="color:var(--color-carbs);">Углеводы</span>
+              <span id="carbsPercent" class="macro-pct">0%</span>
             </div>
-            <div class="macro-box-val" id="carbsCurrentVal">0 / 220г</div>
+            <div class="macro-box-val" id="carbsCurrentVal">0 <small>/ 220г</small></div>
             <div class="macro-bar-track">
               <div id="carbsBarFill" class="macro-bar-fill" style="background-color:var(--color-carbs);width:0%;"></div>
             </div>
+            <span id="carbsCurrentXE" style="display:none;">0 ХЕ</span>
           </div>
         </div>
       </section>
@@ -580,11 +584,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v21)
+          🔄 Сбросить кэш и обновить (v22)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v20 · Исправлено отображение блюд
+          NutriTrack v22 · Панель нутриентов и ХЕ
         </div>
       </div>
     </div>
@@ -653,11 +657,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=21"></script>
-  <script src="./js/camera.js?v=21"></script>
-  <script src="./js/gemini.js?v=21"></script>
-  <script src="./js/voice.js?v=21"></script>
-  <script src="./js/app.js?v=21"></script>
+  <script src="./js/storage.js?v=22"></script>
+  <script src="./js/camera.js?v=22"></script>
+  <script src="./js/gemini.js?v=22"></script>
+  <script src="./js/voice.js?v=22"></script>
+  <script src="./js/app.js?v=22"></script>
 
 </body>
 </html>

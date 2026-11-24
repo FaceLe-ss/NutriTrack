@@ -465,7 +465,7 @@ body {
   background-color: var(--border-color);
 }
 
-/* Macros (КБЖУ) Grid */
+/* Macros (КБЖУ и ХЕ) Grid */
 .section-header {
   display: flex;
   align-items: center;
@@ -482,6 +482,21 @@ body {
   color: var(--text-muted);
 }
 
+.macro-xe-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  color: var(--color-xe);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .macros-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -492,29 +507,46 @@ body {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 18px;
-  padding: 12px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 84px;
+  box-sizing: border-box;
 }
 
 .macro-box-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 6px;
+  gap: 2px;
+}
+
+.macro-name {
   font-size: 11px;
   font-weight: 700;
-  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.macro-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .macro-box-val {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .macro-box-val small {
-  font-size: 10px;
-  font-weight: 400;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
@@ -530,7 +562,7 @@ body {
 .macro-bar-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.6s ease;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Хлебные Единицы (ХЕ) Banner */

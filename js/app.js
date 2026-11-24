@@ -318,7 +318,7 @@ class NutriApp {
     // Protein
     const pctP = Math.min(100, Math.round((curP / targetP) * 100));
     const pVal = document.getElementById('proteinCurrentVal');
-    if (pVal) pVal.textContent = `${curP} / ${targetP}г`;
+    if (pVal) pVal.innerHTML = `${curP} <small>/ ${targetP}г</small>`;
     const pPct = document.getElementById('proteinPercent');
     if (pPct) pPct.textContent = `${pctP}%`;
     const pBar = document.getElementById('proteinBarFill');
@@ -327,7 +327,7 @@ class NutriApp {
     // Fat
     const pctF = Math.min(100, Math.round((curF / targetF) * 100));
     const fVal = document.getElementById('fatCurrentVal');
-    if (fVal) fVal.textContent = `${curF} / ${targetF}г`;
+    if (fVal) fVal.innerHTML = `${curF} <small>/ ${targetF}г</small>`;
     const fPct = document.getElementById('fatPercent');
     if (fPct) fPct.textContent = `${pctF}%`;
     const fBar = document.getElementById('fatBarFill');
@@ -336,7 +336,7 @@ class NutriApp {
     // Carbs
     const pctC = Math.min(100, Math.round((curC / targetC) * 100));
     const cVal = document.getElementById('carbsCurrentVal');
-    if (cVal) cVal.textContent = `${curC} / ${targetC}г`;
+    if (cVal) cVal.innerHTML = `${curC} <small>/ ${targetC}г</small>`;
     const cPct = document.getElementById('carbsPercent');
     if (cPct) cPct.textContent = `${pctC}%`;
     const cBar = document.getElementById('carbsBarFill');
