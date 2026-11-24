@@ -448,13 +448,37 @@ class NutriApp {
       });
     });
 
-    // Auto-recalculate ХЕ and Insulin when carbs are manually changed in verification modal
+    // Auto-recalculate Calories, Protein, Fat, Carbs, XE, and Insulin when weight is changed in verification modal
+    const scanWeightInput = document.getElementById('scanWeightInput');
+    if (scanWeightInput) {
+      scanWeightInput.addEventListener('input', (e) => {
+        this.onScanWeightChange(e.target.value);
+      });
+    }
+
+    // Auto-recalculate ХЕ, Insulin and update macro ratios when carbs/macros are manually changed in verification modal
     const editCarbsInput = document.getElementById('scanCarbsInput');
     if (editCarbsInput) {
       editCarbsInput.addEventListener('input', (e) => {
         const carbs = Math.max(0, Number(e.target.value) || 0);
         this.updateVerificationInsulin(carbs);
+        this.onManualMacroChange();
       });
+    }
+
+    const editCaloriesInput = document.getElementById('scanCaloriesInput');
+    if (editCaloriesInput) {
+      editCaloriesInput.addEventListener('input', () => this.onManualMacroChange());
+    }
+
+    const editProteinInput = document.getElementById('scanProteinInput');
+    if (editProteinInput) {
+      editProteinInput.addEventListener('input', () => this.onManualMacroChange());
+    }
+
+    const editFatInput = document.getElementById('scanFatInput');
+    if (editFatInput) {
+      editFatInput.addEventListener('input', () => this.onManualMacroChange());
     }
 
     // Universal Swipe-Down-To-Dismiss for all bottom sheets
@@ -795,9 +819,61 @@ class NutriApp {
 
   // --- VERIFICATION & EDIT MODAL ---
 
+  onScanWeightChange(newWeightStr) {
+    if (!this.baseVerificationData) return;
+    const weight = Number(newWeightStr);
+    if (isNaN(weight) || weight <= 0) return;
+
+    // Proportionally recalculate based on nutritional density per gram
+    const newCalories = Math.round(weight * this.baseVerificationData.caloriesPerGram);
+    const newProtein = Math.round(weight * this.baseVerificationData.proteinPerGram * 10) / 10;
+    const newFat = Math.round(weight * this.baseVerificationData.fatPerGram * 10) / 10;
+    const newCarbs = Math.round(weight * this.baseVerificationData.carbsPerGram * 10) / 10;
+
+    const calInput = document.getElementById('scanCaloriesInput');
+    const protInput = document.getElementById('scanProteinInput');
+    const fatInput = document.getElementById('scanFatInput');
+    const carbsInput = document.getElementById('scanCarbsInput');
+
+    if (calInput) calInput.value = newCalories;
+    if (protInput) protInput.value = newProtein;
+    if (fatInput) fatInput.value = newFat;
+    if (carbsInput) carbsInput.value = newCarbs;
+
+    this.updateVerificationInsulin(newCarbs);
+  }
+
+  onManualMacroChange() {
+    const weight = Math.max(1, Number(document.getElementById('scanWeightInput')?.value) || 1);
+    const calories = Number(document.getElementById('scanCaloriesInput')?.value) || 0;
+    const protein = Number(document.getElementById('scanProteinInput')?.value) || 0;
+    const fat = Number(document.getElementById('scanFatInput')?.value) || 0;
+    const carbs = Number(document.getElementById('scanCarbsInput')?.value) || 0;
+
+    this.baseVerificationData = {
+      baseWeight: weight,
+      caloriesPerGram: calories / weight,
+      proteinPerGram: protein / weight,
+      fatPerGram: fat / weight,
+      carbsPerGram: carbs / weight
+    };
+  }
+
   openScanVerificationModal(scanData) {
     this.tempScanResult = scanData;
     const overlay = document.getElementById('verifyModalOverlay');
+
+    const rawWeight = Number(scanData.weight_g) || 0;
+    const initialWeight = rawWeight > 0 ? rawWeight : 100;
+
+    // Cache nutritional density (per gram) for real-time proportional scaling
+    this.baseVerificationData = {
+      baseWeight: initialWeight,
+      caloriesPerGram: (Number(scanData.calories) || 0) / initialWeight,
+      proteinPerGram: (Number(scanData.protein_g) || 0) / initialWeight,
+      fatPerGram: (Number(scanData.fat_g) || 0) / initialWeight,
+      carbsPerGram: (Number(scanData.carbs_g) || 0) / initialWeight
+    };
 
     document.getElementById('scanDishNameInput').value = scanData.dish_name || '';
     document.getElementById('scanWeightInput').value = scanData.weight_g || 0;
@@ -840,6 +916,7 @@ class NutriApp {
   closeVerifyModal() {
     document.getElementById('verifyModalOverlay').classList.remove('active');
     this.tempScanResult = null;
+    this.baseVerificationData = null;
   }
 
   async saveVerifiedMeal() {
