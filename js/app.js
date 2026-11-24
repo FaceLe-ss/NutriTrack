@@ -4,7 +4,7 @@
 
 class NutriApp {
   constructor() {
-    this.currentDateStr = new Date().toISOString().split('T')[0];
+    this.currentDateStr = this.getTodayDateStr();
     this.settings = null;
     this.todayMeals = [];
     this.tempScanResult = null; // For holding AI scan before saving
@@ -16,7 +16,7 @@ class NutriApp {
   async init() {
     // Register Service Worker for PWA capabilities
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=16')
+      navigator.serviceWorker.register('./sw.js?v=18')
         .then((reg) => {
           console.log('Service Worker registered');
           try { reg.update(); } catch (e) {}
@@ -120,12 +120,40 @@ class NutriApp {
     await this.setTheme(nextTheme);
   }
 
+  // --- LOCAL CALENDAR DATE HELPERS (Timezone-Proof) ---
+
+  formatDateStr(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  parseDateStr(str) {
+    if (!str) return new Date();
+    const parts = str.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0); // 12:00:00 noon prevents any DST / UTC offset crossings
+    }
+    return new Date();
+  }
+
+  getTodayDateStr() {
+    return this.formatDateStr(new Date());
+  }
+
+  formatReadableDate(dateStr) {
+    const d = this.parseDateStr(dateStr);
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
   renderDateHeader() {
-    const isToday = this.currentDateStr === new Date().toISOString().split('T')[0];
+    const todayStr = this.getTodayDateStr();
+    const isToday = this.currentDateStr === todayStr;
 
     // Current date label (top header)
     const dateElem = document.getElementById('currentDateLabel');
-    const d = new Date(this.currentDateStr + 'T00:00:00');
+    const d = this.parseDateStr(this.currentDateStr);
     const options = { weekday: 'long', day: 'numeric', month: 'long' };
     const formatted = d.toLocaleDateString('ru-RU', options);
     const capDate = formatted.charAt(0).toUpperCase() + formatted.slice(1);
@@ -141,6 +169,7 @@ class NutriApp {
     // Date navigator in main view
     const navText = document.getElementById('dateNavText');
     const todayBadge = document.getElementById('dateNavTodayBadge');
+    const returnTodayBtn = document.getElementById('dateNavReturnTodayBtn');
 
     if (navText) {
       navText.textContent = isToday ? `Сегодня, ${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}` : capDate;
@@ -148,14 +177,33 @@ class NutriApp {
     if (todayBadge) {
       todayBadge.style.display = isToday ? 'inline-block' : 'none';
     }
+    if (returnTodayBtn) {
+      returnTodayBtn.style.display = isToday ? 'none' : 'inline-flex';
+    }
   }
 
   changeDate(deltaDays) {
-    const cur = new Date(this.currentDateStr + 'T00:00:00');
+    const cur = this.parseDateStr(this.currentDateStr);
     cur.setDate(cur.getDate() + deltaDays);
-    this.currentDateStr = cur.toISOString().split('T')[0];
+    this.currentDateStr = this.formatDateStr(cur);
     this.renderDateHeader();
     this.refreshData();
+  }
+
+  goToToday() {
+    this.currentDateStr = this.getTodayDateStr();
+    this.renderDateHeader();
+    this.refreshData();
+    this.showToast('📅 Переключено на сегодняшний день');
+  }
+
+  jumpToDate(dateStr) {
+    if (!dateStr) return;
+    this.currentDateStr = dateStr;
+    this.closeHistoryModal();
+    this.renderDateHeader();
+    this.refreshData();
+    this.showToast(`📅 Переключено на ${this.formatReadableDate(dateStr)}`);
   }
 
   openDatePicker() {
@@ -1215,16 +1263,15 @@ class NutriApp {
       const dayCals = dayMeals.reduce((sum, item) => sum + (Number(item.calories) || 0), 0);
       const dayXE = dayMeals.reduce((sum, item) => sum + (Number(item.bread_units) || 0), 0).toFixed(1);
 
-      let dateFormatted = dateStr;
-      try {
-        const dObj = new Date(dateStr + 'T00:00:00');
-        dateFormatted = dObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-      } catch (e) {}
+      let dateFormatted = this.formatReadableDate(dateStr);
 
       html += `
-        <div class="history-group-header">
+        <div class="history-group-header" style="cursor:pointer;" onclick="window.app.jumpToDate('${dateStr}')" title="Открыть этот день в дневнике">
           <span>📅 ${dateFormatted}</span>
-          <span style="color:var(--color-calories);">${dayCals} ккал · ${dayXE} ХЕ</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="color:var(--color-calories);">${dayCals} ккал · ${dayXE} ХЕ</span>
+            <button type="button" class="date-nav-return-btn" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation(); window.app.jumpToDate('${dateStr}')">Перейти ↗</button>
+          </div>
         </div>
       `;
 

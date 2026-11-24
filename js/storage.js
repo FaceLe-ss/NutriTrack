@@ -147,6 +147,14 @@ class NutriStorage {
     });
   }
 
+  getTodayDateStr() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   async addMeal(mealData) {
     await this.init();
     const settings = await this.getSettings();
@@ -157,7 +165,7 @@ class NutriStorage {
 
     const meal = {
       id: 'meal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      date: mealData.date || new Date().toISOString().split('T')[0],
+      date: mealData.date || this.getTodayDateStr(),
       time: mealData.time || new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
       type: mealData.type || this.detectMealType(),
       name: mealData.name || 'Блюдо без названия',

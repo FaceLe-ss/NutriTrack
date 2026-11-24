@@ -52,8 +52,9 @@
       <div class="date-navigator">
         <button class="date-nav-btn" onclick="window.app.changeDate(-1)" aria-label="Предыдущий день">❮</button>
         <div class="date-nav-label" onclick="window.app.openDatePicker()">
-          <span id="dateNavText">Сегодня, 19 ноября</span>
+          <span id="dateNavText">Сегодня</span>
           <span id="dateNavTodayBadge" class="date-nav-today-badge">СЕГОДНЯ</span>
+          <button type="button" id="dateNavReturnTodayBtn" class="date-nav-return-btn" style="display:none;" onclick="event.stopPropagation(); window.app.goToToday();" title="Вернуться к сегодняшнему дню">Сегодня ↩</button>
           <input type="date" id="hiddenDatePicker" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" onchange="window.app.onDatePicked(this.value)" />
         </div>
         <button class="date-nav-btn" onclick="window.app.changeDate(1)" aria-label="Следующий день">❯</button>
@@ -573,11 +574,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v17)
+          🔄 Сбросить кэш и обновить (v18)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v17 · Расчет инсулина и ХЕ
+          NutriTrack v18 · Быстрая навигация по дням
         </div>
       </div>
     </div>
@@ -646,11 +647,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=17"></script>
-  <script src="./js/camera.js?v=17"></script>
-  <script src="./js/gemini.js?v=17"></script>
-  <script src="./js/voice.js?v=17"></script>
-  <script src="./js/app.js?v=17"></script>
+  <script src="./js/storage.js?v=18"></script>
+  <script src="./js/camera.js?v=18"></script>
+  <script src="./js/gemini.js?v=18"></script>
+  <script src="./js/voice.js?v=18"></script>
+  <script src="./js/app.js?v=18"></script>
 
 </body>
 </html>

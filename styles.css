@@ -285,6 +285,26 @@ body {
   font-weight: 700;
 }
 
+.date-nav-return-btn {
+  font-size: 10px;
+  background-color: rgba(14, 165, 233, 0.15);
+  color: var(--color-protein);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.date-nav-return-btn:active {
+  background-color: rgba(14, 165, 233, 0.35);
+  transform: scale(0.96);
+}
+
 /* Filter Chips */
 .filter-chips-container {
   display: flex;
