@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css?v=22">
+  <link rel="stylesheet" href="./styles.css?v=23">
 </head>
 <body>
 
@@ -525,17 +525,25 @@
               <input type="checkbox" id="settingInsulinEnabled" checked style="width:20px;height:20px;accent-color:var(--color-protein);" />
             </div>
 
-            <!-- Auto calculate ICR via 500 Rule -->
-            <div style="background:var(--bg-primary);border-radius:12px;padding:10px;border:1px solid var(--border-color);">
-              <label class="form-label">Суточная доза инсулина (СДИ), ед.</label>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input type="number" id="settingDailyInsulin" class="form-input" style="width:100px;" placeholder="40" value="40" />
-                <button type="button" class="btn-secondary" onclick="window.app.autoCalculateICR()" style="flex:1;font-size:11px;padding:8px;">
-                  ⚡ Рассчитать коэффициенты
-                </button>
+            <!-- Personal Insulin Regimen Inputs -->
+            <div style="background:var(--bg-primary);border-radius:14px;padding:12px;border:1px solid var(--border-color);">
+              <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text-main);">Ваш привычный режим инсулина:</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" style="font-size:11px;">Длинный (базал), ед.</label>
+                  <input type="number" id="settingBasalInsulin" class="form-input" style="text-align:center;font-weight:700;" placeholder="20" value="20" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" style="font-size:11px;">Короткий на еду, ед.</label>
+                  <input type="number" id="settingBolusAvg" class="form-input" style="text-align:center;font-weight:700;color:var(--color-protein);" placeholder="7" value="7" />
+                </div>
               </div>
-              <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">
-                «Правило 500»: рассчитывает углеводные коэффициенты (УК) по вашей суммарной дозе инсулина (базал + болюсы за сутки).
+              <input type="hidden" id="settingDailyInsulin" value="41" />
+              <button type="button" class="btn-secondary" onclick="window.app.autoCalculateICRFromRegimen()" style="width:100%;font-size:11px;padding:8px;margin-top:10px;">
+                ⚡ Откалибровать коэффициенты под мои уколы
+              </button>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.3;">
+                💡 При 20 ед. продленного и ~7 ед. на средний прием пищи (~4 ХЕ) коэффициенты калибруются на 1.8–2.0 ед./ХЕ.
               </div>
             </div>
 
@@ -544,16 +552,19 @@
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Завтрак</div>
-                  <input type="number" step="0.1" id="settingIcrBreakfast" class="form-input" style="text-align:center;" value="1.5" />
+                  <input type="number" step="0.1" id="settingIcrBreakfast" class="form-input" style="text-align:center;font-weight:700;" value="2.0" />
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Обед</div>
-                  <input type="number" step="0.1" id="settingIcrLunch" class="form-input" style="text-align:center;" value="1.2" />
+                  <input type="number" step="0.1" id="settingIcrLunch" class="form-input" style="text-align:center;font-weight:700;" value="1.8" />
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Ужин</div>
-                  <input type="number" step="0.1" id="settingIcrDinner" class="form-input" style="text-align:center;" value="1.0" />
+                  <input type="number" step="0.1" id="settingIcrDinner" class="form-input" style="text-align:center;font-weight:700;" value="1.5" />
                 </div>
+              </div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">
+                Вы можете вручную изменить любое значение под свои замеры глюкозы.
               </div>
             </div>
 
@@ -584,11 +595,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v22)
+          🔄 Сбросить кэш и обновить (v23)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v22 · Панель нутриентов и ХЕ
+          NutriTrack v23 · Персональный расчет болюса под ваши дозы
         </div>
       </div>
     </div>
@@ -657,11 +668,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=22"></script>
-  <script src="./js/camera.js?v=22"></script>
-  <script src="./js/gemini.js?v=22"></script>
-  <script src="./js/voice.js?v=22"></script>
-  <script src="./js/app.js?v=22"></script>
+  <script src="./js/storage.js?v=23"></script>
+  <script src="./js/camera.js?v=23"></script>
+  <script src="./js/gemini.js?v=23"></script>
+  <script src="./js/voice.js?v=23"></script>
+  <script src="./js/app.js?v=23"></script>
 
 </body>
 </html>

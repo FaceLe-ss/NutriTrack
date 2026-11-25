@@ -31,10 +31,12 @@ class NutriStorage {
       target_carbs: 220,
       xe_ratio: 10, // 1 ХЕ = 10 г углеводов
       insulin_enabled: true,
-      total_daily_insulin: 40, // СДИ (суточная доза инсулина), ед.
-      icr_breakfast: 1.0, // УК утро (ед/ХЕ)
-      icr_lunch: 0.8, // УК день (ед/ХЕ)
-      icr_dinner: 0.7, // УК вечер (ед/ХЕ)
+      basal_insulin: 20, // Базальный (длинный), ед.
+      bolus_avg: 7, // Средний болюс (короткий на прием пищи), ед.
+      total_daily_insulin: 41, // СДИ (20 + 7*3 = 41 ед.)
+      icr_breakfast: 2.0, // УК утро (ед/ХЕ) — на 3.5 ХЕ дает 7 ед.
+      icr_lunch: 1.8, // УК день (ед/ХЕ) — на 4.0 ХЕ дает ~7 ед.
+      icr_dinner: 1.5, // УК вечер (ед/ХЕ) — на 4.5 ХЕ дает ~7 ед.
       insulin_step: 1.0 // Шаг округления: 1.0 или 0.5 ед.
     };
   }
@@ -97,12 +99,22 @@ class NutriStorage {
         if (!res.openrouter_model || res.openrouter_model.includes('2.0-flash-exp') || res.openrouter_model.includes('1.5')) {
           res.openrouter_model = 'google/gemini-2.5-flash-lite';
         }
-        if (res.icr_breakfast === undefined) res.icr_breakfast = this.defaultSettings.icr_breakfast;
-        if (res.icr_lunch === undefined) res.icr_lunch = this.defaultSettings.icr_lunch;
-        if (res.icr_dinner === undefined) res.icr_dinner = this.defaultSettings.icr_dinner;
+        if (res.basal_insulin === undefined) res.basal_insulin = this.defaultSettings.basal_insulin;
+        if (res.bolus_avg === undefined) res.bolus_avg = this.defaultSettings.bolus_avg;
+        if (res.total_daily_insulin === undefined) res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
+
+        // Auto-upgrade legacy low default ICRs (<=1.0 / <=0.8) to user's calibrated regimen (20 basal, ~7 bolus)
+        if (res.icr_breakfast === undefined || (Number(res.icr_breakfast) <= 1.0 && Number(res.icr_lunch) <= 0.8)) {
+          res.icr_breakfast = this.defaultSettings.icr_breakfast;
+          res.icr_lunch = this.defaultSettings.icr_lunch;
+          res.icr_dinner = this.defaultSettings.icr_dinner;
+          res.basal_insulin = this.defaultSettings.basal_insulin;
+          res.bolus_avg = this.defaultSettings.bolus_avg;
+          res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
+        }
+
         if (res.insulin_step === undefined) res.insulin_step = this.defaultSettings.insulin_step;
         if (res.insulin_enabled === undefined) res.insulin_enabled = this.defaultSettings.insulin_enabled;
-        if (res.total_daily_insulin === undefined) res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
         resolve(res);
       };
 
