@@ -234,6 +234,7 @@ class NutriApp {
     try { this.renderCalorieGauge(summary); } catch (e) { console.error('renderCalorieGauge error:', e); }
     try { this.renderMacros(summary); } catch (e) { console.error('renderMacros error:', e); }
     try { this.renderXEBanner(summary); } catch (e) { console.error('renderXEBanner error:', e); }
+    try { this.renderXEPlanStrip(); } catch (e) { console.error('renderXEPlanStrip error:', e); }
     try { this.renderMealsList(this.todayMeals); } catch (e) { console.error('renderMealsList error:', e); }
   }
 
@@ -347,11 +348,206 @@ class NutriApp {
     }
   }
 
+  getDailyXEPlan(meals = this.todayMeals) {
+    const s = this.settings || {};
+    const xeRatio = Number(s.xe_ratio) || 10;
+    const targetCalories = Number(s.target_calories) || 2100;
+    const targetProtein = Number(s.target_protein) || 140;
+    const targetFat = Number(s.target_fat) || 70;
+    const targetCarbs = Number(s.target_carbs) || 220;
+    const age = Number(s.user_age) || 35;
+    const gender = s.user_gender || 'male';
+
+    const dailyTargetXE = Number((targetCarbs / xeRatio).toFixed(1));
+    const macroCalories = targetProtein * 4 + targetFat * 9 + targetCarbs * 4;
+    const recommendedCarbsForCalories = Math.round((targetCalories * 0.40) / 4);
+    const recommendedXEForCalories = Number((recommendedCarbsForCalories / xeRatio).toFixed(1));
+
+    // Meal distribution: Breakfast 25%, Lunch 35%, Dinner 25%, Snacks 15%
+    const breakfastTarget = Number((dailyTargetXE * 0.25).toFixed(1));
+    const lunchTarget = Number((dailyTargetXE * 0.35).toFixed(1));
+    const dinnerTarget = Number((dailyTargetXE * 0.25).toFixed(1));
+    const snackTarget = Number(Math.max(0.5, dailyTargetXE - breakfastTarget - lunchTarget - dinnerTarget).toFixed(1));
+
+    const targetsByType = {
+      'Завтрак': breakfastTarget,
+      'Обед': lunchTarget,
+      'Ужин': dinnerTarget,
+      'Перекус': snackTarget
+    };
+
+    const consumedByType = {
+      'Завтрак': 0,
+      'Обед': 0,
+      'Ужин': 0,
+      'Перекус': 0
+    };
+
+    let totalConsumedXE = 0;
+    (meals || []).forEach((m) => {
+      const xe = Number(m.bread_units) || 0;
+      totalConsumedXE += xe;
+      const type = Object.prototype.hasOwnProperty.call(consumedByType, m.type) ? m.type : 'Перекус';
+      consumedByType[type] += xe;
+    });
+
+    Object.keys(consumedByType).forEach((k) => {
+      consumedByType[k] = Number(consumedByType[k].toFixed(1));
+    });
+    totalConsumedXE = Number(totalConsumedXE.toFixed(1));
+
+    const avgMainMealXE = Number(((breakfastTarget + lunchTarget + dinnerTarget) / 3).toFixed(1));
+    const remainingDailyXE = Number((dailyTargetXE - totalConsumedXE).toFixed(1));
+
+    return {
+      xeRatio,
+      age,
+      gender,
+      targetCalories,
+      macroCalories,
+      targetCarbs,
+      dailyTargetXE,
+      recommendedCarbsForCalories,
+      recommendedXEForCalories,
+      avgMainMealXE,
+      targetsByType,
+      consumedByType,
+      totalConsumedXE,
+      remainingDailyXE
+    };
+  }
+
   renderXEBanner(summary) {
     const xeElem = document.getElementById('todayTotalXE');
     if (xeElem) {
-      xeElem.textContent = `${summary.bread_units} ХЕ за день`;
+      const plan = this.getDailyXEPlan(this.todayMeals);
+      xeElem.textContent = `${summary.bread_units} / ${plan.dailyTargetXE} ХЕ`;
     }
+  }
+
+  renderXEPlanStrip() {
+    const strip = document.getElementById('mealXeStrip');
+    if (!strip) return;
+
+    const plan = this.getDailyXEPlan(this.todayMeals);
+    const currentType = window.NutriStorage.detectMealType();
+    const order = ['Завтрак', 'Обед', 'Ужин', 'Перекус'];
+
+    strip.innerHTML = order.map((type) => {
+      const target = plan.targetsByType[type] || 0;
+      const consumed = plan.consumedByType[type] || 0;
+      const pct = target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : 0;
+      const isCurrent = type === currentType;
+      const isExceeded = consumed > target + 0.3;
+
+      return `
+        <div class="meal-xe-slot ${isCurrent ? 'is-current' : ''} ${isExceeded ? 'is-exceeded' : ''}">
+          <div class="meal-xe-slot-top">
+            <span>${type}</span>
+          </div>
+          <div class="meal-xe-slot-val">${consumed} <small>/ ${target}</small></div>
+          <div class="meal-xe-slot-bar">
+            <div class="meal-xe-slot-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  openXePlanModal() {
+    const overlay = document.getElementById('xePlanModalOverlay');
+    const body = document.getElementById('xePlanModalBody');
+    if (!overlay || !body) return;
+
+    const plan = this.getDailyXEPlan(this.todayMeals);
+    const currentType = window.NutriStorage.detectMealType();
+    const basal = Number(this.settings?.basal_insulin) || 20;
+    const bolusAvg = Number(this.settings?.bolus_avg) || 7;
+    const icrB = Number(this.settings?.icr_breakfast) || 2.0;
+    const icrL = Number(this.settings?.icr_lunch) || 1.8;
+    const icrD = Number(this.settings?.icr_dinner) || 1.5;
+
+    const slots = [
+      { type: 'Завтрак', emoji: '🥣', pct: '25%', note: 'Утром резистентность выше — лучше медленные углеводы' },
+      { type: 'Обед', emoji: '🥗', pct: '35%', note: 'Основной углеводный прием в пик дневной активности' },
+      { type: 'Ужин', emoji: '🍲', pct: '25%', note: 'Желательно за 3–4 ч до сна для ровной ночи' },
+      { type: 'Перекус', emoji: '☕', pct: '15%', note: '1–2 легких перекуса (фрукты, кисломолочное)' }
+    ];
+
+    const hasMismatch = Math.abs(plan.macroCalories - plan.targetCalories) > 150;
+    const genderLabel = plan.gender === 'female' ? 'Женщина' : 'Мужчина';
+    const normativeRange = plan.targetCalories <= 1850
+      ? '14–17 ХЕ (снижение веса / умеренный дефицит)'
+      : '18–22 ХЕ (поддержание веса и обычная активность)';
+
+    const rowsHtml = slots.map((s) => {
+      const targetXE = plan.targetsByType[s.type];
+      const consumedXE = plan.consumedByType[s.type];
+      const remainingXE = Number((targetXE - consumedXE).toFixed(1));
+      const calc = this.getInsulinCalculation(targetXE, s.type);
+      const isCurrent = s.type === currentType;
+
+      return `
+        <div class="xe-plan-row ${isCurrent ? 'is-active' : ''}">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;">
+              <span>${s.emoji} ${s.type}</span>
+              <span style="font-size:10px;color:var(--text-muted);font-weight:600;">(${s.pct})</span>
+              ${isCurrent ? '<span style="font-size:9px;background:rgba(249,115,22,0.2);color:var(--color-xe);padding:1px 6px;border-radius:999px;">сейчас</span>' : ''}
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px;line-height:1.3;">${s.note}</div>
+            <div style="font-size:10.5px;margin-top:4px;color:var(--text-main);">
+              Съедено: <strong>${consumedXE} ХЕ</strong> · ${remainingXE >= 0 ? `осталось ${remainingXE} ХЕ` : `<span style="color:#ef4444;">превышение +${Math.abs(remainingXE)} ХЕ</span>`}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:15px;font-weight:900;color:var(--color-xe);">~${targetXE} ХЕ</div>
+            ${calc.enabled ? `<div style="font-size:10.5px;font-weight:700;color:var(--color-protein);margin-top:2px;">💉 ~${calc.dose} ед. <small style="font-weight:400;color:var(--text-muted);">(УК ${calc.icr})</small></div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:16px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Ваш ориентир на сутки</span>
+          <span style="font-size:16px;font-weight:900;color:var(--color-xe);">${plan.totalConsumedXE} / ${plan.dailyTargetXE} ХЕ</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-main);line-height:1.45;">
+          Для профиля <strong>${genderLabel}, ${plan.age} лет</strong> с диабетом норма при <strong>${plan.targetCalories.toLocaleString('ru-RU')} ккал</strong> составляет <strong>${normativeRange}</strong> (1 ХЕ = ${plan.xeRatio}г углеводов).
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+          По вашим настройкам задано <strong>${plan.targetCarbs} г</strong> углеводов = <strong>${plan.dailyTargetXE} ХЕ/сут</strong>.
+        </div>
+        ${hasMismatch ? `
+          <div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:10px;font-size:11px;line-height:1.35;">
+            ⚠️ Ваши БЖУ суммарно дают <strong>${plan.macroCalories.toLocaleString('ru-RU')} ккал</strong>, а цель стоит <strong>${plan.targetCalories.toLocaleString('ru-RU')} ккал</strong>. Для ${plan.targetCalories} ккал сбалансированная норма углеводов ≈ <strong>${plan.recommendedCarbsForCalories} г (${plan.recommendedXEForCalories} ХЕ)</strong>.
+          </div>
+        ` : ''}
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding:0 2px;">Распределение по приемам пищи</div>
+        ${rowsHtml}
+      </div>
+
+      <div style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.3);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--color-protein);margin-bottom:4px;">💉 Связь с вашими дозами инсулина</div>
+        <div style="font-size:11px;color:var(--text-main);line-height:1.4;">
+          • Длинный (базал): <strong>${basal} ед./сут</strong><br/>
+          • Короткий на средний прием: <strong>~${bolusAvg} ед.</strong><br/>
+          • Активные коэффициенты: Завтрак <strong>${icrB}</strong> · Обед <strong>${icrL}</strong> · Ужин <strong>${icrD}</strong> ед./ХЕ.<br/>
+          • Средний основной прием по плану: <strong>${plan.avgMainMealXE} ХЕ</strong>.
+        </div>
+      </div>
+    `;
+
+    overlay.classList.add('active');
+  }
+
+  closeXePlanModal() {
+    document.getElementById('xePlanModalOverlay')?.classList.remove('active');
   }
 
   renderMealsList(meals) {
@@ -761,19 +957,32 @@ class NutriApp {
 
   getInsulinCalculation(breadUnits, mealType = null) {
     if (!this.settings || this.settings.insulin_enabled === false) {
-      return { enabled: false, dose: 0, rawDose: '0', icr: 1.0, periodName: '', step: 1.0 };
+      return { enabled: false, dose: 0, rawDose: '0', icr: 1.8, periodName: '', step: 1.0, mealType: mealType || 'Обед' };
     }
 
     const hour = new Date().getHours();
+    const effectiveType = mealType || window.NutriStorage.detectMealType();
+
     let icr = Number(this.settings.icr_lunch) || 1.8;
     let periodName = 'Обед';
 
-    if (mealType === 'Завтрак' || (!mealType && hour >= 4 && hour < 12)) {
+    if (effectiveType === 'Завтрак') {
       icr = Number(this.settings.icr_breakfast) || 2.0;
       periodName = 'Завтрак';
-    } else if (mealType === 'Ужин' || (!mealType && (hour >= 17 || hour < 4))) {
+    } else if (effectiveType === 'Ужин') {
       icr = Number(this.settings.icr_dinner) || 1.5;
       periodName = 'Ужин';
+    } else if (effectiveType === 'Перекус') {
+      if (hour >= 5 && hour < 11) {
+        icr = Number(this.settings.icr_breakfast) || 2.0;
+        periodName = 'Перекус (утро)';
+      } else if (hour >= 18 || hour < 5) {
+        icr = Number(this.settings.icr_dinner) || 1.5;
+        periodName = 'Перекус (вечер)';
+      } else {
+        icr = Number(this.settings.icr_lunch) || 1.8;
+        periodName = 'Перекус (день)';
+      }
     }
 
     const step = Number(this.settings.insulin_step) || 1.0;
@@ -787,8 +996,18 @@ class NutriApp {
       rawDose: rawDose.toFixed(1),
       icr,
       periodName,
-      step
+      step,
+      mealType: effectiveType
     };
+  }
+
+  selectVerificationMealType(mealType) {
+    this.selectedVerificationMealType = mealType;
+    document.querySelectorAll('#scanMealTypeSelector .meal-type-pill').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.mealType === mealType);
+    });
+    const carbs = Math.max(0, Number(document.getElementById('scanCarbsInput')?.value) || 0);
+    this.updateVerificationInsulin(carbs);
   }
 
   updateVerificationInsulin(carbs) {
@@ -797,9 +1016,57 @@ class NutriApp {
     const xeDisplay = document.getElementById('scanBreadUnitsDisplay');
     if (xeDisplay) xeDisplay.textContent = `${xe} ХЕ`;
 
+    const xeFormulaLabel = document.getElementById('scanXeFormulaLabel');
+    if (xeFormulaLabel) {
+      xeFormulaLabel.textContent = `Рассчитано по формуле (${Math.round(carbs)}г / ${xeRatio}г)`;
+    }
+
+    // Update recommended XE for this meal slot and daily budget
+    const mealType = this.selectedVerificationMealType || window.NutriStorage.detectMealType();
+    const plan = this.getDailyXEPlan(this.todayMeals);
+    const mealTargetXE = plan.targetsByType[mealType] ?? 4.0;
+    const alreadyInSlot = plan.consumedByType[mealType] || 0;
+    const slotRemainingBefore = Number(Math.max(0, mealTargetXE - alreadyInSlot).toFixed(1));
+    const projectedDailyTotal = Number((plan.totalConsumedXE + xe).toFixed(1));
+    const projectedDailyRemaining = Number((plan.dailyTargetXE - projectedDailyTotal).toFixed(1));
+
+    const mealNormLabel = document.getElementById('scanMealNormLabel');
+    const dailyRemLabel = document.getElementById('scanDailyRemainingLabel');
+    const xeVerdict = document.getElementById('scanXeVerdict');
+
+    if (mealNormLabel) {
+      mealNormLabel.textContent = `Норма «${mealType}»: ~${mealTargetXE} ХЕ` + (alreadyInSlot > 0 ? ` (уже ${alreadyInSlot})` : '');
+    }
+    if (dailyRemLabel) {
+      dailyRemLabel.textContent = projectedDailyRemaining >= 0
+        ? `После приема ост.: ${projectedDailyRemaining} из ${plan.dailyTargetXE} ХЕ`
+        : `Перебор дня: +${Math.abs(projectedDailyRemaining)} ХЕ`;
+    }
+    if (xeVerdict) {
+      xeVerdict.classList.remove('ok', 'warn', 'excess');
+      if (projectedDailyTotal > plan.dailyTargetXE + 0.5) {
+        xeVerdict.classList.add('excess');
+        xeVerdict.textContent = `❗ Суточная норма ХЕ будет превышена (${projectedDailyTotal} из ${plan.dailyTargetXE} ХЕ)`;
+      } else if (alreadyInSlot + xe > mealTargetXE + 0.8) {
+        const diff = Number(((alreadyInSlot + xe) - mealTargetXE).toFixed(1));
+        xeVerdict.classList.add('warn');
+        xeVerdict.textContent = `⚠️ Выше рекомендуемой нормы «${mealType}» на +${diff} ХЕ`;
+      } else if (xe === 0) {
+        xeVerdict.classList.add('ok');
+        xeVerdict.textContent = `✅ Безуглеводное блюдо (0 ХЕ)`;
+      } else {
+        const leftAfter = Math.max(0, Number((slotRemainingBefore - xe).toFixed(1)));
+        xeVerdict.classList.add('ok');
+        xeVerdict.textContent = leftAfter > 0.2
+          ? `✅ В норме для «${mealType}» (останется еще ~${leftAfter} ХЕ)`
+          : `✅ Идеально попадает в норму «${mealType}»`;
+      }
+    }
+
     const insulinCard = document.getElementById('scanInsulinCard');
     const insulinInput = document.getElementById('scanInsulinInput');
     const insulinFormula = document.getElementById('scanInsulinFormula');
+    const insulinContext = document.getElementById('scanInsulinContext');
 
     if (!this.settings?.insulin_enabled) {
       if (insulinCard) insulinCard.style.display = 'none';
@@ -807,13 +1074,27 @@ class NutriApp {
     }
 
     if (insulinCard) insulinCard.style.display = 'flex';
-    const calc = this.getInsulinCalculation(xe);
+    const calc = this.getInsulinCalculation(xe, mealType);
     if (insulinInput) {
       insulinInput.value = calc.dose;
       insulinInput.step = calc.step.toString();
     }
     if (insulinFormula) {
-      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} ед. (округлено с шагом ${calc.step} ед.)`;
+      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} ед. (шаг ${calc.step} ед.)`;
+    }
+    if (insulinContext) {
+      const bolusAvg = Number(this.settings?.bolus_avg) || 7;
+      const basal = Number(this.settings?.basal_insulin) || 20;
+      const doseNum = Number(calc.dose) || 0;
+      if (xe === 0) {
+        insulinContext.textContent = `Базал: ${basal} ед. · Углеводов нет — подколка не требуется`;
+      } else if (doseNum > bolusAvg + 2) {
+        insulinContext.textContent = `Выше вашей обычной дозы (~${bolusAvg} ед.) — порция больше средней`;
+      } else if (doseNum < Math.max(1, bolusAvg - 2)) {
+        insulinContext.textContent = `Ниже вашей обычной дозы (~${bolusAvg} ед.) — легкий прием`;
+      } else {
+        insulinContext.textContent = `Соответствует вашей средней дозе (~${bolusAvg} ед. · Базал ${basal} ед.)`;
+      }
     }
   }
 
@@ -882,8 +1163,9 @@ class NutriApp {
     document.getElementById('scanFatInput').value = scanData.fat_g || 0;
     document.getElementById('scanCarbsInput').value = scanData.carbs_g || 0;
 
-    // Update XE & Insulin displays dynamically
-    this.updateVerificationInsulin(scanData.carbs_g || 0);
+    // Set active meal type pill & update XE/Insulin recommendations dynamically
+    const initialMealType = scanData.mealType || window.NutriStorage.detectMealType();
+    this.selectVerificationMealType(initialMealType);
 
     // User Comment field is EMPTY by default per user request, ready for notes
     const commentInput = document.getElementById('scanCommentInput');
@@ -917,6 +1199,7 @@ class NutriApp {
     document.getElementById('verifyModalOverlay').classList.remove('active');
     this.tempScanResult = null;
     this.baseVerificationData = null;
+    this.selectedVerificationMealType = null;
   }
 
   async saveVerifiedMeal() {
@@ -928,9 +1211,10 @@ class NutriApp {
     const carbs = Math.max(0, Number(document.getElementById('scanCarbsInput').value) || 0);
     const userComment = document.getElementById('scanCommentInput') ? document.getElementById('scanCommentInput').value.trim() : '';
 
+    const mealType = this.selectedVerificationMealType || window.NutriStorage.detectMealType();
     const xeRatio = Number(this.settings?.xe_ratio) || 10;
     const bread_units = Math.round((carbs / xeRatio) * 10) / 10;
-    const insulinCalc = this.getInsulinCalculation(bread_units);
+    const insulinCalc = this.getInsulinCalculation(bread_units, mealType);
 
     const userDoseInput = document.getElementById('scanInsulinInput');
     const userDose = userDoseInput ? Number(userDoseInput.value) : null;
@@ -938,6 +1222,7 @@ class NutriApp {
 
     const mealData = {
       date: this.currentDateStr,
+      type: mealType,
       name,
       weight_g,
       calories,
@@ -1053,6 +1338,10 @@ class NutriApp {
 
     // Profile fields
     document.getElementById('settingUserName').value = settings.user_name || '';
+    const genderInput = document.getElementById('settingUserGender');
+    if (genderInput) genderInput.value = settings.user_gender || 'male';
+    const ageInput = document.getElementById('settingUserAge');
+    if (ageInput) ageInput.value = settings.user_age || 35;
     document.getElementById('settingUserHeight').value = settings.user_height || '';
     document.getElementById('settingUserWeight').value = settings.user_weight || '';
     this.applyTheme(settings.theme || 'dark');
@@ -1080,6 +1369,9 @@ class NutriApp {
     const bolusAvgInput = document.getElementById('settingBolusAvg');
     if (bolusAvgInput) bolusAvgInput.value = settings.bolus_avg || 7;
 
+    const typicalMealInput = document.getElementById('settingTypicalMealXe');
+    if (typicalMealInput) typicalMealInput.value = settings.typical_meal_xe || 4.0;
+
     const dailyInsulinInput = document.getElementById('settingDailyInsulin');
     if (dailyInsulinInput) dailyInsulinInput.value = settings.total_daily_insulin || 41;
 
@@ -1106,6 +1398,7 @@ class NutriApp {
       noticeBox.style.display = 'none';
     }
 
+    this.updateSettingsCalorieCheck();
     overlay.classList.add('active');
   }
 
@@ -1117,44 +1410,110 @@ class NutriApp {
     // Optional live feedback hook
   }
 
+  updateSettingsCalorieCheck() {
+    const targetCals = Number(document.getElementById('settingTargetCalories')?.value) || 2100;
+    const p = Number(document.getElementById('settingTargetProtein')?.value) || 0;
+    const f = Number(document.getElementById('settingTargetFat')?.value) || 0;
+    const c = Number(document.getElementById('settingTargetCarbs')?.value) || 0;
+    const xeRatio = Math.max(5, Number(document.getElementById('settingXeRatio')?.value) || 10);
+
+    const dailyXE = Number((c / xeRatio).toFixed(1));
+    const hint = document.getElementById('settingCarbsXeHint');
+    if (hint) hint.textContent = `= ${dailyXE} ХЕ/сут`;
+
+    const macroCals = Math.round(p * 4 + f * 9 + c * 4);
+    const mismatchBox = document.getElementById('settingsMacroMismatchBox');
+    const mismatchText = document.getElementById('settingsMacroMismatchText');
+    if (mismatchBox && mismatchText) {
+      if (Math.abs(macroCals - targetCals) > 150) {
+        const recCarbs = Math.round((targetCals * 0.40) / 4);
+        const recXE = Number((recCarbs / xeRatio).toFixed(1));
+        mismatchText.innerHTML = `⚠️ Ваши БЖУ дают <strong>${macroCals.toLocaleString('ru-RU')} ккал</strong>, а дневная цель — <strong>${targetCals.toLocaleString('ru-RU')} ккал</strong>. Для ${targetCals} ккал норма ≈ <strong>${recCarbs}г угл. (${recXE} ХЕ)</strong>.`;
+        mismatchBox.style.display = 'flex';
+      } else {
+        mismatchBox.style.display = 'none';
+      }
+    }
+  }
+
+  syncMacrosToCalories() {
+    const cals = Math.max(800, Number(document.getElementById('settingTargetCalories')?.value) || 2100);
+    const xeRatio = Math.max(5, Number(document.getElementById('settingXeRatio')?.value) || 10);
+
+    // Balanced diabetic macro split: 25% Protein, 34% Fat, ~41% Carbs
+    const protein = Math.round((cals * 0.25) / 4);
+    const fat = Math.round((cals * 0.34) / 9);
+    const carbs = Math.round(Math.max(100, cals - protein * 4 - fat * 9) / 4);
+    const dailyXE = Number((carbs / xeRatio).toFixed(1));
+
+    document.getElementById('settingTargetProtein').value = protein;
+    document.getElementById('settingTargetFat').value = fat;
+    document.getElementById('settingTargetCarbs').value = carbs;
+
+    this.updateSettingsCalorieCheck();
+    this.showToast(`✅ БЖУ подогнаны под ${cals} ккал: Углеводы ${carbs}г (${dailyXE} ХЕ/сут)`);
+  }
+
   autoCalculateCalories() {
     const height = Number(document.getElementById('settingUserHeight').value);
     const weight = Number(document.getElementById('settingUserWeight').value);
+    const age = Number(document.getElementById('settingUserAge')?.value) || 35;
+    const gender = document.getElementById('settingUserGender')?.value || 'male';
+    const xeRatio = Math.max(5, Number(document.getElementById('settingXeRatio')?.value) || 10);
 
     if (!height || !weight || height < 100 || weight < 30) {
       alert('Пожалуйста, укажите корректные рост (см) и вес (кг) для расчета нормы.');
       return;
     }
 
-    // Formula: Mifflin-St Jeor (assuming avg baseline activity factor 1.35)
-    const bmr = 10 * weight + 6.25 * height - 145;
+    // Mifflin-St Jeor equation using age and gender (baseline sedentary/light activity factor 1.35)
+    const baseBmr = 10 * weight + 6.25 * height - 5 * age;
+    const bmr = gender === 'female' ? baseBmr - 161 : baseBmr + 5;
     const tdee = Math.round(bmr * 1.35);
 
-    const protein = Math.round(weight * 1.8);
-    const fat = Math.round(weight * 0.9);
-    const remainingCals = Math.max(200, tdee - (protein * 4 + fat * 9));
+    const protein = Math.round((tdee * 0.25) / 4);
+    const fat = Math.round((tdee * 0.33) / 9);
+    const remainingCals = Math.max(400, tdee - (protein * 4 + fat * 9));
     const carbs = Math.round(remainingCals / 4);
+    const dailyXE = Number((carbs / xeRatio).toFixed(1));
 
     document.getElementById('settingTargetCalories').value = tdee;
     document.getElementById('settingTargetProtein').value = protein;
     document.getElementById('settingTargetFat').value = fat;
     document.getElementById('settingTargetCarbs').value = carbs;
 
-    this.showToast(`Рассчитана суточная норма: ${tdee} ккал (Б:${protein}г, Ж:${fat}г, У:${carbs}г)`);
+    this.updateSettingsCalorieCheck();
+    this.showToast(`Норма (${age} лет): ${tdee} ккал (У:${carbs}г = ${dailyXE} ХЕ)`);
+  }
+
+  fillTypicalMealFromPlan() {
+    const carbs = Number(document.getElementById('settingTargetCarbs')?.value) || 220;
+    const xeRatio = Math.max(5, Number(document.getElementById('settingXeRatio')?.value) || 10);
+    const dailyXE = carbs / xeRatio;
+    // Main meals account for 85% of daily XE (Breakfast 25%, Lunch 35%, Dinner 25%) divided across 3 main meals
+    const avgMainMealXE = Math.max(1.5, Number(((dailyXE * 0.85) / 3).toFixed(1)));
+
+    const input = document.getElementById('settingTypicalMealXe');
+    if (input) input.value = avgMainMealXE;
+
+    const hint = document.getElementById('regimenCalibrationHint');
+    if (hint) {
+      hint.textContent = `📊 Средний основной прием при плане ${dailyXE.toFixed(1)} ХЕ/сут = ${avgMainMealXE} ХЕ. Нажмите «Пересчитать УК» для обновления коэффициентов.`;
+    }
+    this.showToast(`Подставлено из плана: ${avgMainMealXE} ХЕ (при ${dailyXE.toFixed(1)} ХЕ/сут)`);
   }
 
   autoCalculateICRFromRegimen() {
     const basal = Number(document.getElementById('settingBasalInsulin')?.value) || 20;
     const bolus = Number(document.getElementById('settingBolusAvg')?.value) || 7;
+    const typicalMealXe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.0);
 
     if (bolus <= 0) {
       alert('Пожалуйста, укажите вашу среднюю дозу короткого инсулина на прием пищи.');
       return;
     }
 
-    // A standard main meal is ~3.8 - 4.0 XE (38-40g carbs)
-    // For lunch: ICR = bolus / 3.9
-    const lunchIcr = Math.max(0.3, Math.round((bolus / 3.9) * 10) / 10);
+    const lunchIcr = Math.max(0.3, Math.round((bolus / typicalMealXe) * 10) / 10);
     // Morning dawn phenomenon / cortisol: ~15% higher resistance
     const breakfastIcr = Math.max(0.3, Math.round((lunchIcr * 1.15) * 10) / 10);
     // Evening: ~15% higher sensitivity
@@ -1171,7 +1530,12 @@ class NutriApp {
     const dailyInput = document.getElementById('settingDailyInsulin');
     if (dailyInput) dailyInput.value = tdd;
 
-    this.showToast(`✅ УК откалиброваны под ~${bolus} ед.: Завтрак ${breakfastIcr}, Обед ${lunchIcr}, Ужин ${dinnerIcr} ед/ХЕ`);
+    const hint = document.getElementById('regimenCalibrationHint');
+    if (hint) {
+      hint.textContent = `✅ Расчет: ${bolus} ед. ÷ ${typicalMealXe} ХЕ = ${lunchIcr} ед/ХЕ (Утро ${breakfastIcr}, Обед ${lunchIcr}, Ужин ${dinnerIcr})`;
+    }
+
+    this.showToast(`✅ УК откалиброваны (${bolus} ед. ÷ ${typicalMealXe} ХЕ): ${breakfastIcr} / ${lunchIcr} / ${dinnerIcr}`);
   }
 
   autoCalculateICR() {
@@ -1184,6 +1548,8 @@ class NutriApp {
 
   async saveSettings() {
     const user_name = document.getElementById('settingUserName').value.trim();
+    const user_gender = document.getElementById('settingUserGender')?.value || 'male';
+    const user_age = Math.max(10, Number(document.getElementById('settingUserAge')?.value) || 35);
     const user_height = Number(document.getElementById('settingUserHeight').value) || '';
     const user_weight = Number(document.getElementById('settingUserWeight').value) || '';
 
@@ -1200,6 +1566,7 @@ class NutriApp {
     const insulin_enabled = document.getElementById('settingInsulinEnabled') ? document.getElementById('settingInsulinEnabled').checked : true;
     const basal_insulin = Number(document.getElementById('settingBasalInsulin')?.value) || 20;
     const bolus_avg = Number(document.getElementById('settingBolusAvg')?.value) || 7;
+    const typical_meal_xe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.0);
     const total_daily_insulin = Number(document.getElementById('settingDailyInsulin')?.value) || (basal_insulin + bolus_avg * 3);
     const icr_breakfast = Number(document.getElementById('settingIcrBreakfast')?.value) || 2.0;
     const icr_lunch = Number(document.getElementById('settingIcrLunch')?.value) || 1.8;
@@ -1208,6 +1575,8 @@ class NutriApp {
 
     await window.NutriStorage.saveSettings({
       user_name,
+      user_gender,
+      user_age,
       user_height,
       user_weight,
       api_provider,
@@ -1221,6 +1590,7 @@ class NutriApp {
       insulin_enabled,
       basal_insulin,
       bolus_avg,
+      typical_meal_xe,
       total_daily_insulin,
       icr_breakfast,
       icr_lunch,

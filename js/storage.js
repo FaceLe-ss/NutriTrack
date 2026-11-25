@@ -15,6 +15,8 @@ class NutriStorage {
       user_name: '',
       user_height: '',
       user_weight: '',
+      user_age: 35,
+      user_gender: 'male', // 'male' | 'female'
       theme: 'dark', // 'dark' | 'light'
       api_provider: 'openrouter',
       openrouter_api_key: (function() {
@@ -33,6 +35,7 @@ class NutriStorage {
       insulin_enabled: true,
       basal_insulin: 20, // Базальный (длинный), ед.
       bolus_avg: 7, // Средний болюс (короткий на прием пищи), ед.
+      typical_meal_xe: 4.0, // Средняя порция основного приема пищи (ХЕ) под обычный укол
       total_daily_insulin: 41, // СДИ (20 + 7*3 = 41 ед.)
       icr_breakfast: 2.0, // УК утро (ед/ХЕ) — на 3.5 ХЕ дает 7 ед.
       icr_lunch: 1.8, // УК день (ед/ХЕ) — на 4.0 ХЕ дает ~7 ед.
@@ -99,8 +102,11 @@ class NutriStorage {
         if (!res.openrouter_model || res.openrouter_model.includes('2.0-flash-exp') || res.openrouter_model.includes('1.5')) {
           res.openrouter_model = 'google/gemini-2.5-flash-lite';
         }
+        if (res.user_age === undefined || res.user_age === '') res.user_age = this.defaultSettings.user_age;
+        if (!res.user_gender) res.user_gender = this.defaultSettings.user_gender;
         if (res.basal_insulin === undefined) res.basal_insulin = this.defaultSettings.basal_insulin;
         if (res.bolus_avg === undefined) res.bolus_avg = this.defaultSettings.bolus_avg;
+        if (res.typical_meal_xe === undefined) res.typical_meal_xe = this.defaultSettings.typical_meal_xe;
         if (res.total_daily_insulin === undefined) res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
 
         // Auto-upgrade legacy low default ICRs (<=1.0 / <=0.8) to user's calibrated regimen (20 basal, ~7 bolus)
@@ -110,6 +116,7 @@ class NutriStorage {
           res.icr_dinner = this.defaultSettings.icr_dinner;
           res.basal_insulin = this.defaultSettings.basal_insulin;
           res.bolus_avg = this.defaultSettings.bolus_avg;
+          res.typical_meal_xe = this.defaultSettings.typical_meal_xe;
           res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
         }
 
@@ -272,7 +279,7 @@ class NutriStorage {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 11) return 'Завтрак';
     if (hour >= 11 && hour < 16) return 'Обед';
-    if (hour >= 16 && hour < 19) return 'Перекус';
+    if (hour >= 16 && hour < 18) return 'Перекус';
     return 'Ужин';
   }
 

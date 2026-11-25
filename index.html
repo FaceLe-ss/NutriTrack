@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css?v=23">
+  <link rel="stylesheet" href="./styles.css?v=24">
 </head>
 <body>
 
@@ -91,9 +91,10 @@
       <section>
         <div class="section-header">
           <span class="section-title">Макронутриенты</span>
-          <div class="macro-xe-pill" title="Хлебные Единицы за день">
+          <div class="macro-xe-pill" onclick="window.app.openXePlanModal()" title="Нажмите, чтобы посмотреть норму ХЕ и распределение по приемам пищи">
             <span>🏷️</span>
-            <span id="todayTotalXE">0 ХЕ за день</span>
+            <span id="todayTotalXE">0 / 22 ХЕ</span>
+            <span style="opacity:0.75;font-size:9px;">▾</span>
           </div>
         </div>
         
@@ -135,6 +136,9 @@
             <span id="carbsCurrentXE" style="display:none;">0 ХЕ</span>
           </div>
         </div>
+
+        <!-- Compact 4-meal XE schedule strip -->
+        <div id="mealXeStrip" class="meal-xe-strip" onclick="window.app.openXePlanModal()" title="Нажмите для подробного плана ХЕ и инсулина"></div>
       </section>
 
       <!-- SECTION 3: Today's Meals List -->
@@ -196,6 +200,16 @@
         <div id="scanPhotoPreview" style="display:none;"></div>
 
         <div class="form-group">
+          <label class="form-label">Прием пищи (влияет на норму ХЕ и УК)</label>
+          <div class="meal-type-pills" id="scanMealTypeSelector">
+            <button type="button" class="meal-type-pill" data-meal-type="Завтрак" onclick="window.app.selectVerificationMealType('Завтрак')">🥣 Завтрак</button>
+            <button type="button" class="meal-type-pill" data-meal-type="Обед" onclick="window.app.selectVerificationMealType('Обед')">🥗 Обед</button>
+            <button type="button" class="meal-type-pill" data-meal-type="Ужин" onclick="window.app.selectVerificationMealType('Ужин')">🍲 Ужин</button>
+            <button type="button" class="meal-type-pill" data-meal-type="Перекус" onclick="window.app.selectVerificationMealType('Перекус')">☕ Перекус</button>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Название блюда</label>
           <input type="text" id="scanDishNameInput" class="form-input" placeholder="Название блюда" />
         </div>
@@ -229,13 +243,22 @@
           </div>
         </div>
 
-        <!-- Calculated XE Widget in Verification Modal -->
-        <div style="background-color:rgba(249, 115, 22, 0.12);border:1px solid rgba(249, 115, 22, 0.3);border-radius:14px;padding:12px;display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--color-xe);">Хлебные Единицы блюда</div>
-            <div style="font-size:10px;color:var(--text-muted);" id="scanXeFormulaLabel">Рассчитано по формуле (Углеводы / 10)</div>
+        <!-- Calculated XE & Meal Recommendation Widget in Verification Modal -->
+        <div style="background-color:rgba(249, 115, 22, 0.12);border:1px solid rgba(249, 115, 22, 0.3);border-radius:14px;padding:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--color-xe);">Хлебные Единицы блюда</div>
+              <div style="font-size:10px;color:var(--text-muted);" id="scanXeFormulaLabel">Рассчитано по формуле (Углеводы / 10)</div>
+            </div>
+            <div id="scanBreadUnitsDisplay" style="font-size:20px;font-weight:900;color:var(--color-xe);">0 ХЕ</div>
           </div>
-          <div id="scanBreadUnitsDisplay" style="font-size:20px;font-weight:900;color:var(--color-xe);">0 ХЕ</div>
+          <div class="xe-rec-row" id="scanXeRecommendationRow">
+            <div class="xe-rec-meta">
+              <span id="scanMealNormLabel">Норма на прием: ~5.5 ХЕ</span>
+              <span id="scanDailyRemainingLabel">Остаток дня: 22 ХЕ</span>
+            </div>
+            <div id="scanXeVerdict" class="xe-rec-status ok">✅ Вписывается в норму приема</div>
+          </div>
         </div>
 
         <!-- Calculated Insulin Dose Widget in Verification Modal -->
@@ -243,6 +266,7 @@
           <div style="flex:1;padding-right:8px;">
             <div style="font-size:12px;font-weight:700;color:var(--color-protein);">💉 Рекомендуемый болюс инсулина</div>
             <div id="scanInsulinFormula" style="font-size:10px;color:var(--text-muted);line-height:1.3;margin-top:2px;">Расчет по углеводному коэффициенту</div>
+            <div id="scanInsulinContext" style="font-size:10px;color:var(--color-protein);line-height:1.3;margin-top:3px;font-weight:600;"></div>
           </div>
           <div style="display:flex;align-items:center;gap:4px;">
             <input type="number" step="0.5" id="scanInsulinInput" class="form-input" style="width:75px;font-size:18px;font-weight:900;text-align:center;color:var(--color-protein);padding:6px 4px;" value="0" />
@@ -416,26 +440,37 @@
 
         <!-- Section 1: Calorie & Macro Goals (Main) -->
         <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-          <div style="font-size:12px;font-weight:700;color:var(--color-calories);text-transform:uppercase;letter-spacing:0.05em;">🎯 Дневная норма</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;font-weight:700;color:var(--color-calories);text-transform:uppercase;letter-spacing:0.05em;">🎯 Дневная норма</span>
+            <span id="settingCarbsXeHint" style="font-size:11px;font-weight:700;color:var(--color-xe);background:rgba(249,115,22,0.12);padding:2px 8px;border-radius:999px;">= 22.0 ХЕ/сут</span>
+          </div>
           
           <div class="form-group">
             <label class="form-label">Суточная норма калорий (ккал)</label>
-            <input type="number" id="settingTargetCalories" class="form-input" value="2100" style="font-size:18px;font-weight:800;color:var(--color-calories);" />
+            <input type="number" id="settingTargetCalories" class="form-input" value="2100" oninput="window.app.updateSettingsCalorieCheck()" style="font-size:18px;font-weight:800;color:var(--color-calories);" />
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
             <div class="form-group">
               <label class="form-label" style="color:var(--color-protein);">Белки (г)</label>
-              <input type="number" id="settingTargetProtein" class="form-input" value="140" style="font-weight:700;" />
+              <input type="number" id="settingTargetProtein" class="form-input" value="140" oninput="window.app.updateSettingsCalorieCheck()" style="font-weight:700;" />
             </div>
             <div class="form-group">
               <label class="form-label" style="color:var(--color-fat);">Жиры (г)</label>
-              <input type="number" id="settingTargetFat" class="form-input" value="70" style="font-weight:700;" />
+              <input type="number" id="settingTargetFat" class="form-input" value="70" oninput="window.app.updateSettingsCalorieCheck()" style="font-weight:700;" />
             </div>
             <div class="form-group">
               <label class="form-label" style="color:var(--color-carbs);">Углеводы (г)</label>
-              <input type="number" id="settingTargetCarbs" class="form-input" value="220" style="font-weight:700;" />
+              <input type="number" id="settingTargetCarbs" class="form-input" value="220" oninput="window.app.updateSettingsCalorieCheck()" style="font-weight:700;" />
             </div>
+          </div>
+
+          <!-- Dynamic Macro-Calorie Mismatch Alert -->
+          <div id="settingsMacroMismatchBox" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:12px;padding:10px;flex-direction:column;gap:8px;">
+            <div id="settingsMacroMismatchText" style="font-size:11px;color:var(--text-main);line-height:1.35;"></div>
+            <button type="button" class="btn-secondary" onclick="window.app.syncMacrosToCalories()" style="font-size:11px;padding:7px;color:var(--color-xe);border-color:rgba(249,115,22,0.35);">
+              ⚡ Подогнать КБЖУ и ХЕ под эту калорийность
+            </button>
           </div>
         </div>
 
@@ -470,6 +505,20 @@
           <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-color);">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div class="form-group">
+                <label class="form-label">Пол</label>
+                <select id="settingUserGender" class="form-input" style="font-size:12px;">
+                  <option value="male">Мужской</option>
+                  <option value="female">Женский</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Возраст (лет)</label>
+                <input type="number" id="settingUserAge" class="form-input" placeholder="35" value="35" />
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group">
                 <label class="form-label">Рост (см)</label>
                 <input type="number" id="settingUserHeight" class="form-input" placeholder="178" oninput="window.app.onProfileChange()" />
               </div>
@@ -480,14 +529,14 @@
             </div>
 
             <button type="button" class="btn-secondary" onclick="window.app.autoCalculateCalories()" style="font-size:12px;padding:8px;">
-              ⚡ Рассчитать норму по росту и весу
+              ⚡ Рассчитать норму по параметрам тела
             </button>
 
             <!-- XE Ratio Setting -->
             <div class="form-group">
               <label class="form-label">Коэффициент Хлебной Единицы (ХЕ)</label>
               <div style="display:flex;align-items:center;gap:10px;">
-                <input type="number" id="settingXeRatio" class="form-input" style="width:80px;" value="10" />
+                <input type="number" id="settingXeRatio" class="form-input" style="width:80px;" value="10" oninput="window.app.updateSettingsCalorieCheck()" />
                 <span style="font-size:11px;color:var(--text-muted);">г углеводов в 1 ХЕ</span>
               </div>
             </div>
@@ -528,22 +577,31 @@
             <!-- Personal Insulin Regimen Inputs -->
             <div style="background:var(--bg-primary);border-radius:14px;padding:12px;border:1px solid var(--border-color);">
               <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text-main);">Ваш привычный режим инсулина:</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:11px;">Длинный (базал), ед.</label>
+                  <label class="form-label" style="font-size:10px;">Длинный, ед.</label>
                   <input type="number" id="settingBasalInsulin" class="form-input" style="text-align:center;font-weight:700;" placeholder="20" value="20" />
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label" style="font-size:11px;">Короткий на еду, ед.</label>
+                  <label class="form-label" style="font-size:10px;">Короткий, ед.</label>
                   <input type="number" id="settingBolusAvg" class="form-input" style="text-align:center;font-weight:700;color:var(--color-protein);" placeholder="7" value="7" />
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label" style="font-size:10px;">На прием, ХЕ</label>
+                  <input type="number" step="0.5" id="settingTypicalMealXe" class="form-input" style="text-align:center;font-weight:700;color:var(--color-xe);" placeholder="4.0" value="4.0" />
                 </div>
               </div>
               <input type="hidden" id="settingDailyInsulin" value="41" />
-              <button type="button" class="btn-secondary" onclick="window.app.autoCalculateICRFromRegimen()" style="width:100%;font-size:11px;padding:8px;margin-top:10px;">
-                ⚡ Откалибровать коэффициенты под мои уколы
-              </button>
-              <div style="font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.3;">
-                💡 При 20 ед. продленного и ~7 ед. на средний прием пищи (~4 ХЕ) коэффициенты калибруются на 1.8–2.0 ед./ХЕ.
+              <div style="display:flex;gap:6px;margin-top:8px;">
+                <button type="button" class="btn-secondary" onclick="window.app.fillTypicalMealFromPlan()" style="flex:1;font-size:10.5px;padding:7px 6px;">
+                  📊 Взять ХЕ из плана
+                </button>
+                <button type="button" class="btn-secondary" onclick="window.app.autoCalculateICRFromRegimen()" style="flex:1.4;font-size:10.5px;padding:7px 6px;color:var(--color-protein);border-color:rgba(14,165,233,0.35);">
+                  ⚡ Пересчитать УК
+                </button>
+              </div>
+              <div id="regimenCalibrationHint" style="font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.3;">
+                💡 Базовый УК = Короткий ÷ ХЕ на прием (например, 7 ед. ÷ 4 ХЕ = ~1.8 ед./ХЕ).
               </div>
             </div>
 
@@ -595,11 +653,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v23)
+          🔄 Сбросить кэш и обновить (v24)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v23 · Персональный расчет болюса под ваши дозы
+          NutriTrack v24 · Рекомендации ХЕ, план питания и УК
         </div>
       </div>
     </div>
@@ -653,6 +711,23 @@
       </div>
     </div>
 
+    <!-- MODAL 8: Daily XE Plan & Clinical Diabetes Recommendations -->
+    <div class="modal-overlay" id="xePlanModalOverlay">
+      <div class="bottom-sheet" style="max-height:90vh;">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2 class="sheet-title">План ХЕ и доз инсулина</h2>
+          <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeXePlanModal()">✕</button>
+        </div>
+        <div id="xePlanModalBody" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:66vh;padding-bottom:6px;">
+          <!-- Dynamically populated by app.js -->
+        </div>
+        <button class="btn-secondary" style="margin-top:4px;font-size:12px;" onclick="window.app.closeXePlanModal(); window.app.openSettingsModal();">
+          ⚙️ Настроить норму калорий, ХЕ и дозы инсулина
+        </button>
+      </div>
+    </div>
+
     <!-- Toast Notification Banner Card -->
     <div id="appToast" class="toast-card">
       <div class="toast-icon-wrapper" id="toastIconWrapper">
@@ -668,11 +743,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=23"></script>
-  <script src="./js/camera.js?v=23"></script>
-  <script src="./js/gemini.js?v=23"></script>
-  <script src="./js/voice.js?v=23"></script>
-  <script src="./js/app.js?v=23"></script>
+  <script src="./js/storage.js?v=24"></script>
+  <script src="./js/camera.js?v=24"></script>
+  <script src="./js/gemini.js?v=24"></script>
+  <script src="./js/voice.js?v=24"></script>
+  <script src="./js/app.js?v=24"></script>
 
 </body>
 </html>

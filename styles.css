@@ -495,6 +495,13 @@ body {
   font-weight: 700;
   text-transform: none;
   letter-spacing: normal;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.macro-xe-pill:active {
+  transform: scale(0.96);
+  background: rgba(249, 115, 22, 0.22);
 }
 
 .macros-grid {
@@ -1138,4 +1145,176 @@ body {
 
 .toast-close-btn:active {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Compact Meal XE Plan Strip on Dashboard */
+.meal-xe-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.meal-xe-slot {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 7px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.meal-xe-slot.is-current {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.08) 0%, var(--bg-surface) 100%);
+}
+
+.meal-xe-slot.is-exceeded {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.meal-xe-slot-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.meal-xe-slot.is-current .meal-xe-slot-top {
+  color: var(--color-xe);
+}
+
+.meal-xe-slot-val {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.meal-xe-slot-val small {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.meal-xe-slot-bar {
+  width: 100%;
+  height: 3px;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+[data-theme="light"] .meal-xe-slot-bar {
+  background-color: rgba(0, 0, 0, 0.07);
+}
+
+.meal-xe-slot-fill {
+  height: 100%;
+  background-color: var(--color-xe);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.meal-xe-slot.is-exceeded .meal-xe-slot-fill {
+  background-color: #ef4444;
+}
+
+/* Verification Modal Meal Type Selector Pills */
+.meal-type-pills {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.meal-type-pill {
+  padding: 7px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.meal-type-pill.active {
+  background-color: rgba(16, 185, 129, 0.14);
+  border-color: var(--color-calories);
+  color: var(--color-calories);
+}
+
+/* XE Recommendation Status Badges */
+.xe-rec-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(249, 115, 22, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.xe-rec-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.xe-rec-status {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.xe-rec-status.ok {
+  color: #34d399;
+}
+
+.xe-rec-status.warn {
+  color: #fbbf24;
+}
+
+.xe-rec-status.excess {
+  color: #f87171;
+}
+
+[data-theme="light"] .xe-rec-status.ok {
+  color: #059669;
+}
+
+[data-theme="light"] .xe-rec-status.warn {
+  color: #d97706;
+}
+
+[data-theme="light"] .xe-rec-status.excess {
+  color: #dc2626;
+}
+
+/* Detailed XE Plan Modal Cards */
+.xe-plan-row {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.xe-plan-row.is-active {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.06);
 }
