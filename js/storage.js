@@ -35,11 +35,11 @@ class NutriStorage {
       insulin_enabled: true,
       basal_insulin: 20, // Базальный (длинный), ед.
       bolus_avg: 7, // Средний болюс (короткий на прием пищи), ед.
-      typical_meal_xe: 4.0, // Средняя порция основного приема пищи (ХЕ) под обычный укол
+      typical_meal_xe: 4.8, // Средний основной прием пищи (4.5–5.0 ХЕ) под обычный укол 7 ед.
       total_daily_insulin: 41, // СДИ (20 + 7*3 = 41 ед.)
-      icr_breakfast: 2.0, // УК утро (ед/ХЕ) — на 3.5 ХЕ дает 7 ед.
-      icr_lunch: 1.8, // УК день (ед/ХЕ) — на 4.0 ХЕ дает ~7 ед.
-      icr_dinner: 1.5, // УК вечер (ед/ХЕ) — на 4.5 ХЕ дает ~7 ед.
+      icr_breakfast: 1.7, // УК утро (ед/ХЕ) — на 4–4.5 ХЕ дает 7–8 ед.
+      icr_lunch: 1.5, // УК день (ед/ХЕ) — на 4.5–5 ХЕ дает 7–8 ед.
+      icr_dinner: 1.3, // УК вечер (ед/ХЕ) — на 5–5.5 ХЕ дает 7 ед.
       insulin_step: 1.0 // Шаг округления: 1.0 или 0.5 ед.
     };
   }
@@ -109,8 +109,10 @@ class NutriStorage {
         if (res.typical_meal_xe === undefined) res.typical_meal_xe = this.defaultSettings.typical_meal_xe;
         if (res.total_daily_insulin === undefined) res.total_daily_insulin = this.defaultSettings.total_daily_insulin;
 
-        // Auto-upgrade legacy low default ICRs (<=1.0 / <=0.8) to user's calibrated regimen (20 basal, ~7 bolus)
-        if (res.icr_breakfast === undefined || (Number(res.icr_breakfast) <= 1.0 && Number(res.icr_lunch) <= 0.8)) {
+        // Auto-upgrade uncalibrated legacy/v23-v24 default ICRs to calmer regimen (1.7 / 1.5 / 1.3, 4.8 XE)
+        const isLegacyLow = Number(res.icr_breakfast) <= 1.0 && Number(res.icr_lunch) <= 0.8;
+        const isPrevDefault = Number(res.icr_breakfast) === 2.0 && Number(res.icr_lunch) === 1.8 && Number(res.icr_dinner) === 1.5;
+        if (res.icr_breakfast === undefined || (!res.v25_calibrated && (isLegacyLow || isPrevDefault))) {
           res.icr_breakfast = this.defaultSettings.icr_breakfast;
           res.icr_lunch = this.defaultSettings.icr_lunch;
           res.icr_dinner = this.defaultSettings.icr_dinner;

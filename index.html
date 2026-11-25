@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css?v=24">
+  <link rel="stylesheet" href="./styles.css?v=25">
 </head>
 <body>
 
@@ -588,7 +588,7 @@
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label" style="font-size:10px;">На прием, ХЕ</label>
-                  <input type="number" step="0.5" id="settingTypicalMealXe" class="form-input" style="text-align:center;font-weight:700;color:var(--color-xe);" placeholder="4.0" value="4.0" />
+                  <input type="number" step="0.1" id="settingTypicalMealXe" class="form-input" style="text-align:center;font-weight:700;color:var(--color-xe);" placeholder="4.8" value="4.8" />
                 </div>
               </div>
               <input type="hidden" id="settingDailyInsulin" value="41" />
@@ -601,7 +601,7 @@
                 </button>
               </div>
               <div id="regimenCalibrationHint" style="font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.3;">
-                💡 Базовый УК = Короткий ÷ ХЕ на прием (например, 7 ед. ÷ 4 ХЕ = ~1.8 ед./ХЕ).
+                💡 Базовый УК = Короткий ÷ ХЕ на прием (7 ед. ÷ 4.8 ХЕ ≈ 1.5 ед./ХЕ). Половинки (.5) бережно округляются вниз.
               </div>
             </div>
 
@@ -610,15 +610,15 @@
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Завтрак</div>
-                  <input type="number" step="0.1" id="settingIcrBreakfast" class="form-input" style="text-align:center;font-weight:700;" value="2.0" />
+                  <input type="number" step="0.1" id="settingIcrBreakfast" class="form-input" style="text-align:center;font-weight:700;" value="1.7" />
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Обед</div>
-                  <input type="number" step="0.1" id="settingIcrLunch" class="form-input" style="text-align:center;font-weight:700;" value="1.8" />
+                  <input type="number" step="0.1" id="settingIcrLunch" class="form-input" style="text-align:center;font-weight:700;" value="1.5" />
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Ужин</div>
-                  <input type="number" step="0.1" id="settingIcrDinner" class="form-input" style="text-align:center;font-weight:700;" value="1.5" />
+                  <input type="number" step="0.1" id="settingIcrDinner" class="form-input" style="text-align:center;font-weight:700;" value="1.3" />
                 </div>
               </div>
               <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">
@@ -653,11 +653,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v24)
+          🔄 Сбросить кэш и обновить (v25)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v24 · Рекомендации ХЕ, план питания и УК
+          NutriTrack v25 · Мягкое округление и точные УК
         </div>
       </div>
     </div>
@@ -743,11 +743,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=24"></script>
-  <script src="./js/camera.js?v=24"></script>
-  <script src="./js/gemini.js?v=24"></script>
-  <script src="./js/voice.js?v=24"></script>
-  <script src="./js/app.js?v=24"></script>
+  <script src="./js/storage.js?v=25"></script>
+  <script src="./js/camera.js?v=25"></script>
+  <script src="./js/gemini.js?v=25"></script>
+  <script src="./js/voice.js?v=25"></script>
+  <script src="./js/app.js?v=25"></script>
 
 </body>
 </html>

@@ -463,9 +463,9 @@ class NutriApp {
     const currentType = window.NutriStorage.detectMealType();
     const basal = Number(this.settings?.basal_insulin) || 20;
     const bolusAvg = Number(this.settings?.bolus_avg) || 7;
-    const icrB = Number(this.settings?.icr_breakfast) || 2.0;
-    const icrL = Number(this.settings?.icr_lunch) || 1.8;
-    const icrD = Number(this.settings?.icr_dinner) || 1.5;
+    const icrB = Number(this.settings?.icr_breakfast) || 1.7;
+    const icrL = Number(this.settings?.icr_lunch) || 1.5;
+    const icrD = Number(this.settings?.icr_dinner) || 1.3;
 
     const slots = [
       { type: 'Завтрак', emoji: '🥣', pct: '25%', note: 'Утром резистентность выше — лучше медленные углеводы' },
@@ -957,37 +957,38 @@ class NutriApp {
 
   getInsulinCalculation(breadUnits, mealType = null) {
     if (!this.settings || this.settings.insulin_enabled === false) {
-      return { enabled: false, dose: 0, rawDose: '0', icr: 1.8, periodName: '', step: 1.0, mealType: mealType || 'Обед' };
+      return { enabled: false, dose: 0, rawDose: '0', icr: 1.5, periodName: '', step: 1.0, mealType: mealType || 'Обед' };
     }
 
     const hour = new Date().getHours();
     const effectiveType = mealType || window.NutriStorage.detectMealType();
 
-    let icr = Number(this.settings.icr_lunch) || 1.8;
+    let icr = Number(this.settings.icr_lunch) || 1.5;
     let periodName = 'Обед';
 
     if (effectiveType === 'Завтрак') {
-      icr = Number(this.settings.icr_breakfast) || 2.0;
+      icr = Number(this.settings.icr_breakfast) || 1.7;
       periodName = 'Завтрак';
     } else if (effectiveType === 'Ужин') {
-      icr = Number(this.settings.icr_dinner) || 1.5;
+      icr = Number(this.settings.icr_dinner) || 1.3;
       periodName = 'Ужин';
     } else if (effectiveType === 'Перекус') {
       if (hour >= 5 && hour < 11) {
-        icr = Number(this.settings.icr_breakfast) || 2.0;
+        icr = Number(this.settings.icr_breakfast) || 1.7;
         periodName = 'Перекус (утро)';
       } else if (hour >= 18 || hour < 5) {
-        icr = Number(this.settings.icr_dinner) || 1.5;
+        icr = Number(this.settings.icr_dinner) || 1.3;
         periodName = 'Перекус (вечер)';
       } else {
-        icr = Number(this.settings.icr_lunch) || 1.8;
+        icr = Number(this.settings.icr_lunch) || 1.5;
         periodName = 'Перекус (день)';
       }
     }
 
     const step = Number(this.settings.insulin_step) || 1.0;
     const rawDose = (Number(breadUnits) || 0) * icr;
-    const roundedDose = Math.round(rawDose / step) * step;
+    // Conservative clinical rounding: half-steps (e.g. X.5) round toward lower unit to reduce hypoglycemia risk
+    const roundedDose = Number((Math.floor((rawDose / step) + 0.45) * step).toFixed(1));
     const dose = Number.isInteger(roundedDose) ? roundedDose.toString() : roundedDose.toFixed(1);
 
     return {
@@ -1080,7 +1081,7 @@ class NutriApp {
       insulinInput.step = calc.step.toString();
     }
     if (insulinFormula) {
-      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} ед. (шаг ${calc.step} ед.)`;
+      insulinFormula.textContent = `${calc.periodName}: ${xe} ХЕ × ${calc.icr} ед/ХЕ = ${calc.rawDose} → ${calc.dose} ед. (шаг ${calc.step} ед.)`;
     }
     if (insulinContext) {
       const bolusAvg = Number(this.settings?.bolus_avg) || 7;
@@ -1370,19 +1371,19 @@ class NutriApp {
     if (bolusAvgInput) bolusAvgInput.value = settings.bolus_avg || 7;
 
     const typicalMealInput = document.getElementById('settingTypicalMealXe');
-    if (typicalMealInput) typicalMealInput.value = settings.typical_meal_xe || 4.0;
+    if (typicalMealInput) typicalMealInput.value = settings.typical_meal_xe || 4.8;
 
     const dailyInsulinInput = document.getElementById('settingDailyInsulin');
     if (dailyInsulinInput) dailyInsulinInput.value = settings.total_daily_insulin || 41;
 
     const icrBreakfastInput = document.getElementById('settingIcrBreakfast');
-    if (icrBreakfastInput) icrBreakfastInput.value = settings.icr_breakfast ?? 2.0;
+    if (icrBreakfastInput) icrBreakfastInput.value = settings.icr_breakfast ?? 1.7;
 
     const icrLunchInput = document.getElementById('settingIcrLunch');
-    if (icrLunchInput) icrLunchInput.value = settings.icr_lunch ?? 1.8;
+    if (icrLunchInput) icrLunchInput.value = settings.icr_lunch ?? 1.5;
 
     const icrDinnerInput = document.getElementById('settingIcrDinner');
-    if (icrDinnerInput) icrDinnerInput.value = settings.icr_dinner ?? 1.5;
+    if (icrDinnerInput) icrDinnerInput.value = settings.icr_dinner ?? 1.3;
 
     const insulinStepInput = document.getElementById('settingInsulinStep');
     if (insulinStepInput) {
@@ -1506,7 +1507,7 @@ class NutriApp {
   autoCalculateICRFromRegimen() {
     const basal = Number(document.getElementById('settingBasalInsulin')?.value) || 20;
     const bolus = Number(document.getElementById('settingBolusAvg')?.value) || 7;
-    const typicalMealXe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.0);
+    const typicalMealXe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.8);
 
     if (bolus <= 0) {
       alert('Пожалуйста, укажите вашу среднюю дозу короткого инсулина на прием пищи.');
@@ -1516,8 +1517,8 @@ class NutriApp {
     const lunchIcr = Math.max(0.3, Math.round((bolus / typicalMealXe) * 10) / 10);
     // Morning dawn phenomenon / cortisol: ~15% higher resistance
     const breakfastIcr = Math.max(0.3, Math.round((lunchIcr * 1.15) * 10) / 10);
-    // Evening: ~15% higher sensitivity
-    const dinnerIcr = Math.max(0.3, Math.round((lunchIcr * 0.85) * 10) / 10);
+    // Evening: ~13% higher sensitivity
+    const dinnerIcr = Math.max(0.3, Math.round((lunchIcr * 0.87) * 10) / 10);
 
     const bInput = document.getElementById('settingIcrBreakfast');
     const lInput = document.getElementById('settingIcrLunch');
@@ -1566,11 +1567,11 @@ class NutriApp {
     const insulin_enabled = document.getElementById('settingInsulinEnabled') ? document.getElementById('settingInsulinEnabled').checked : true;
     const basal_insulin = Number(document.getElementById('settingBasalInsulin')?.value) || 20;
     const bolus_avg = Number(document.getElementById('settingBolusAvg')?.value) || 7;
-    const typical_meal_xe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.0);
+    const typical_meal_xe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.8);
     const total_daily_insulin = Number(document.getElementById('settingDailyInsulin')?.value) || (basal_insulin + bolus_avg * 3);
-    const icr_breakfast = Number(document.getElementById('settingIcrBreakfast')?.value) || 2.0;
-    const icr_lunch = Number(document.getElementById('settingIcrLunch')?.value) || 1.8;
-    const icr_dinner = Number(document.getElementById('settingIcrDinner')?.value) || 1.5;
+    const icr_breakfast = Number(document.getElementById('settingIcrBreakfast')?.value) || 1.7;
+    const icr_lunch = Number(document.getElementById('settingIcrLunch')?.value) || 1.5;
+    const icr_dinner = Number(document.getElementById('settingIcrDinner')?.value) || 1.3;
     const insulin_step = Number(document.getElementById('settingInsulinStep')?.value) || 1.0;
 
     await window.NutriStorage.saveSettings({
@@ -1595,7 +1596,8 @@ class NutriApp {
       icr_breakfast,
       icr_lunch,
       icr_dinner,
-      insulin_step
+      insulin_step,
+      v25_calibrated: true
     });
 
     this.settings = await window.NutriStorage.getSettings();
