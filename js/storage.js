@@ -32,7 +32,7 @@ class NutriStorage {
       target_fat: 70,
       target_carbs: 220,
       xe_ratio: 10, // 1 ХЕ = 10 г углеводов
-      insulin_enabled: true,
+      insulin_enabled: false,
       basal_insulin: 20, // Базальный (длинный), ед.
       bolus_avg: 7, // Средний болюс (короткий на прием пищи), ед.
       typical_meal_xe: 4.8, // Средний основной прием пищи (4.5–5.0 ХЕ) под обычный укол 7 ед.
@@ -123,6 +123,9 @@ class NutriStorage {
         }
 
         if (res.insulin_step === undefined) res.insulin_step = this.defaultSettings.insulin_step;
+        if (!res.v27_insulin_toggle_migrated) {
+          res.insulin_enabled = false;
+        }
         if (res.insulin_enabled === undefined) res.insulin_enabled = this.defaultSettings.insulin_enabled;
         resolve(res);
       };

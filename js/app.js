@@ -459,6 +459,16 @@ class NutriApp {
     const body = document.getElementById('xePlanModalBody');
     if (!overlay || !body) return;
 
+    const insulinEnabled = this.settings?.insulin_enabled === true;
+    const titleElem = document.getElementById('xePlanModalTitle');
+    if (titleElem) {
+      titleElem.textContent = insulinEnabled ? 'План ХЕ и доз инсулина' : 'План ХЕ на день';
+    }
+    const settingsBtn = document.getElementById('xePlanSettingsBtn');
+    if (settingsBtn) {
+      settingsBtn.textContent = insulinEnabled ? '⚙️ Настроить норму калорий, ХЕ и дозы инсулина' : '⚙️ Настроить норму калорий и ХЕ';
+    }
+
     const plan = this.getDailyXEPlan(this.todayMeals);
     const currentType = window.NutriStorage.detectMealType();
     const basal = Number(this.settings?.basal_insulin) || 20;
@@ -508,6 +518,18 @@ class NutriApp {
       `;
     }).join('');
 
+    const insulinSummaryHtml = insulinEnabled ? `
+      <div style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.3);border-radius:14px;padding:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--color-protein);margin-bottom:4px;">💉 Связь с вашими дозами инсулина</div>
+        <div style="font-size:11px;color:var(--text-main);line-height:1.4;">
+          • Длинный (базал): <strong>${basal} ед./сут</strong><br/>
+          • Короткий на средний прием: <strong>~${bolusAvg} ед.</strong><br/>
+          • Активные коэффициенты: Завтрак <strong>${icrB}</strong> · Обед <strong>${icrL}</strong> · Ужин <strong>${icrD}</strong> ед./ХЕ.<br/>
+          • Средний основной прием по плану: <strong>${plan.avgMainMealXE} ХЕ</strong>.
+        </div>
+      </div>
+    ` : '';
+
     body.innerHTML = `
       <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:16px;padding:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -532,15 +554,7 @@ class NutriApp {
         ${rowsHtml}
       </div>
 
-      <div style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.3);border-radius:14px;padding:12px;">
-        <div style="font-size:12px;font-weight:700;color:var(--color-protein);margin-bottom:4px;">💉 Связь с вашими дозами инсулина</div>
-        <div style="font-size:11px;color:var(--text-main);line-height:1.4;">
-          • Длинный (базал): <strong>${basal} ед./сут</strong><br/>
-          • Короткий на средний прием: <strong>~${bolusAvg} ед.</strong><br/>
-          • Активные коэффициенты: Завтрак <strong>${icrB}</strong> · Обед <strong>${icrL}</strong> · Ужин <strong>${icrD}</strong> ед./ХЕ.<br/>
-          • Средний основной прием по плану: <strong>${plan.avgMainMealXE} ХЕ</strong>.
-        </div>
-      </div>
+      ${insulinSummaryHtml}
     `;
 
     overlay.classList.add('active');
@@ -1064,6 +1078,13 @@ class NutriApp {
       }
     }
 
+    const mealTypeLabel = document.getElementById('scanMealTypeLabel');
+    if (mealTypeLabel) {
+      mealTypeLabel.textContent = this.settings?.insulin_enabled
+        ? 'Прием пищи (влияет на норму ХЕ и УК)'
+        : 'Прием пищи (влияет на норму ХЕ)';
+    }
+
     const insulinCard = document.getElementById('scanInsulinCard');
     const insulinInput = document.getElementById('scanInsulinInput');
     const insulinFormula = document.getElementById('scanInsulinFormula');
@@ -1269,10 +1290,11 @@ class NutriApp {
       commentInput.value = meal.comment || '';
     }
 
-    // Display recorded insulin bolus if present
+    // Display recorded insulin bolus only if insulin tracking is enabled
     const insulinRow = document.getElementById('detailMealInsulinRow');
     const insulinVal = document.getElementById('detailMealInsulinVal');
-    if (meal.insulin_dose) {
+    const insulinEnabled = this.settings?.insulin_enabled === true;
+    if (insulinEnabled && meal.insulin_dose) {
       if (insulinVal) insulinVal.textContent = `${meal.insulin_dose} ед. (УК: ${meal.insulin_icr || '—'})`;
       if (insulinRow) insulinRow.style.display = 'flex';
     } else {
@@ -1282,8 +1304,16 @@ class NutriApp {
     // Display AI clinical advice if recorded
     const adviceBox = document.getElementById('detailMealAdviceBox');
     if (adviceBox) {
-      if (meal.ai_advice) {
-        adviceBox.textContent = `💡 Подсказка ИИ: ${meal.ai_advice}`;
+      let adviceText = meal.ai_advice || '';
+      if (!insulinEnabled && adviceText) {
+        adviceText = (adviceText.match(/[^.!?]+[.!?]*/g) || [])
+          .filter((s) => !/(инсулин|болюс|углеводн\w*\s+коэффициент)/i.test(s))
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(' ');
+      }
+      if (adviceText) {
+        adviceBox.textContent = `💡 Подсказка ИИ: ${adviceText}`;
         adviceBox.style.display = 'block';
       } else {
         adviceBox.style.display = 'none';
@@ -1362,7 +1392,7 @@ class NutriApp {
 
     // Insulin settings
     const insulinEnabledCheckbox = document.getElementById('settingInsulinEnabled');
-    if (insulinEnabledCheckbox) insulinEnabledCheckbox.checked = settings.insulin_enabled !== false;
+    if (insulinEnabledCheckbox) insulinEnabledCheckbox.checked = settings.insulin_enabled === true;
 
     const basalInput = document.getElementById('settingBasalInsulin');
     if (basalInput) basalInput.value = settings.basal_insulin || 20;
@@ -1399,8 +1429,17 @@ class NutriApp {
       noticeBox.style.display = 'none';
     }
 
+    this.toggleInsulinSettingsFields();
     this.updateSettingsCalorieCheck();
     overlay.classList.add('active');
+  }
+
+  toggleInsulinSettingsFields() {
+    const checkbox = document.getElementById('settingInsulinEnabled');
+    const body = document.getElementById('insulinSettingsBody');
+    if (body && checkbox) {
+      body.style.display = checkbox.checked ? 'flex' : 'none';
+    }
   }
 
   switchProvider(provider) {
@@ -1564,7 +1603,7 @@ class NutriApp {
     const target_carbs = Math.max(20, Number(document.getElementById('settingTargetCarbs').value) || 220);
     const xe_ratio = Math.max(5, Number(document.getElementById('settingXeRatio').value) || 10);
 
-    const insulin_enabled = document.getElementById('settingInsulinEnabled') ? document.getElementById('settingInsulinEnabled').checked : true;
+    const insulin_enabled = document.getElementById('settingInsulinEnabled') ? document.getElementById('settingInsulinEnabled').checked : false;
     const basal_insulin = Number(document.getElementById('settingBasalInsulin')?.value) || 20;
     const bolus_avg = Number(document.getElementById('settingBolusAvg')?.value) || 7;
     const typical_meal_xe = Math.max(1, Number(document.getElementById('settingTypicalMealXe')?.value) || 4.8);
@@ -1597,7 +1636,8 @@ class NutriApp {
       icr_lunch,
       icr_dinner,
       insulin_step,
-      v25_calibrated: true
+      v25_calibrated: true,
+      v27_insulin_toggle_migrated: true
     });
 
     this.settings = await window.NutriStorage.getSettings();

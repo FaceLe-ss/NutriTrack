@@ -11,14 +11,23 @@ class NutriGemini {
     this.openRouterHost = 'https://openrouter.ai/api/v1/chat/completions';
   }
 
-  getSystemPrompt(xeRatio = 10) {
-    return `Ты — профессиональный клинический диетолог и диабетолог-эндокринолог с глубоким пониманием доказательной медицины, точного подсчета КБЖУ и инсулинотерапии.
+  getSystemPrompt(xeRatio = 10, insulinEnabled = false) {
+    const commentReq = insulinEnabled
+      ? `- 1–2 кратких предложения: укажи тип углеводов (быстрые/медленные, плавный или резкий подъем сахара) и гликемический профиль блюда.
+- Корректная формулировка для болюса: «Углеводы преимущественно медленные/быстрые. Учитывайте ХЕ при расчете дозы болюсного инсулина по вашему углеводному коэффициенту.»`
+      : `- 1–2 кратких предложения: укажи тип углеводов (быстрые/медленные, плавный или резкий подъем сахара), клетчатку, сытность и баланс БЖУ.
+- НЕ упоминай инсулин, уколы, болюсы или углеводные коэффициенты! Пиши только о составе блюда, ХЕ и гликемическом профиле.`;
+
+    const exampleComment = insulinEnabled
+      ? 'Сложные углеводы обеспечат плавный подъем сахара. Учитывайте 3.4 ХЕ при расчете дозы болюсного инсулина по вашему углеводному коэффициенту.'
+      : 'Сложные углеводы обеспечат плавный подъем сахара и длительное чувство сытости без резких скачков.';
+
+    return `Ты — профессиональный клинический диетолог и диабетолог-эндокринолог с глубоким пониманием доказательной медицины, точного подсчета КБЖУ и ХЕ.
 
 КРИТИЧЕСКИ ВАЖНО ДЛЯ ДИАБЕТА:
-- Болюс инсулина рассчитывается СТРОГО на ЧИСТЫЕ (УСВОЯЕМЫЕ) УГЛЕВОДЫ (net carbs = общие углеводы минус неусвояемая клетчатка).
-- 1 Хлебная Единица (ХЕ) = ${xeRatio} граммов чистых усвояемых углеводов (формула: bread_units = carbs_g / ${xeRatio}).
-- ЗАВЫШЕНИЕ УГЛЕВОДОВ СМЕРТЕЛЬНО ОПАСНО, так как ведет к введению лишнего инсулина и тяжелой гипогликемии! При любых сомнениях держись НИЖНЕЙ или СРЕДНЕЙ границы диапазона.
-- СТРОГО ЗАПРЕЩЕНО писать в комментариях «внести ХЕ» или «ввести 4 ХЕ». Инсулин компенсирует ХЕ, а не наоборот!
+- 1 Хлебная Единица (ХЕ) = ${xeRatio} граммов чистых усвояемых углеводов (net carbs = общие углеводы минус неусвояемая клетчатка; формула: bread_units = carbs_g / ${xeRatio}).
+- ЗАВЫШЕНИЕ УГЛЕВОДОВ ОПАСНО! При любых сомнениях держись НИЖНЕЙ или СРЕДНЕЙ границы диапазона.
+- СТРОГО ЗАПРЕЩЕНО писать в комментариях «внести ХЕ» или «ввести 4 ХЕ».
 
 ПРАВИЛА ОЦЕНКИ ВЕСА, КАЛОРИЙНОСТИ И УГЛЕВОДОВ (РЕАЛИСТИЧНЫЕ ДОМАШНИЕ ПОРЦИИ, НЕ ЗАВЫШАТЬ!):
 1. Оценивай ГОТОВУЮ еду на тарелке, а НЕ сухое/сырое сырье!
@@ -55,8 +64,7 @@ class NutriGemini {
    - Строго опирайся на цифры пользователя (например, «конфета 20г» — считай ровно 20г; «150г гречки» — считай ровно 150г вареной гречки, а не 300г!).
 
 ТРЕБОВАНИЯ К ПОЛЮ "comment":
-- 1–2 кратких предложения: укажи тип углеводов (быстрые/медленные, плавный или резкий подъем сахара) и гликемический профиль блюда.
-- Корректная формулировка для болюса: «Углеводы преимущественно медленные/быстрые. Учитывайте ХЕ при расчете дозы болюсного инсулина по вашему углеводному коэффициенту.»
+${commentReq}
 
 Отвечай СТРОГО в формате валидного JSON без markdown кавычек (\`\`\`json), без вступительного и заключительного текста. Структура JSON:
 {
@@ -68,7 +76,7 @@ class NutriGemini {
   "carbs_g": 34,
   "bread_units": 3.4,
   "confidence": "high",
-  "comment": "Сложные углеводы обеспечат плавный подъем сахара. Учитывайте 3.4 ХЕ при расчете дозы болюсного инсулина по вашему углеводному коэффициенту.",
+  "comment": "${exampleComment}",
   "breakdown": [
     {
       "item": "Название ингредиента (в готовом виде)",
@@ -246,19 +254,8 @@ class NutriGemini {
     throw lastError;
   }
 
-  async analyzeFoodImage(base64Image, mimeType = 'image/jpeg', userNotes = '') {
-    const settings = await window.NutriStorage.getSettings();
-    const provider = settings.api_provider || 'gemini';
-    const xeRatio = Number(settings.xe_ratio) || 10;
-
-    if (provider === 'openrouter') {
-      return this.analyzeWithOpenRouterImage(base64Image, mimeType, userNotes, settings, xeRatio);
-    } else {
-      return this.analyzeWithGeminiImage(base64Image, mimeType, userNotes, settings, xeRatio);
-    }
-  }
-
   async analyzeWithGeminiImage(base64Image, mimeType, userNotes, settings, xeRatio) {
+    const insulinEnabled = settings.insulin_enabled === true;
     const promptText = `Определи продукт или блюдо на фотографии. ${userNotes ? 'Уточнение: ' + userNotes : ''}
 ВНИМАНИЕ К МАСШТАБУ И ШТУЧНЫМ СЛАДОСТЯМ/СНЕКАМ:
 - Если это штучный продукт (конфета, шоколад, печенье, снек, орехи): подсчитай точное число штук. Одиночная конфета крупным планом весит всего 13–16 г (НЕ 40г!), карамелька 5–7 г, долька шоколада 5–6 г, печенье 11–14 г. Не путай макросъемку с огромной порцией!
@@ -266,7 +263,7 @@ class NutriGemini {
 
     const requestBody = {
       systemInstruction: {
-        parts: [{ text: this.getSystemPrompt(xeRatio) }]
+        parts: [{ text: this.getSystemPrompt(xeRatio, insulinEnabled) }]
       },
       contents: [
         {
@@ -289,16 +286,17 @@ class NutriGemini {
     };
 
     const data = await this.callGeminiWithFallback(requestBody, settings, settings.gemini_model || 'gemini-3.5-flash-lite');
-    return this.parseGeminiResponse(data, xeRatio);
+    return this.parseGeminiResponse(data, xeRatio, insulinEnabled);
   }
 
   async analyzeWithGeminiText(userSpeechText, settings, xeRatio) {
+    const insulinEnabled = settings.insulin_enabled === true;
     const promptText = `Пользователь описал, что он съел: "${userSpeechText}".
 Определи блюдо и ингредиенты. Если указано количество штук (например, «1 конфета», «2 печенья», «кусочек шоколада»), используй точные эталоны штучного веса (1 шоколадная конфета = 13–16г, 1 печенье = 11–14г). Оцени реальный вес готовой порции (не завышай!), рассчитай калории (с учетом варки круп/макарон и умеренного содержания масла), БЖУ и Хлебные Единицы (1 ХЕ = ${xeRatio}г углеводов).`;
 
     const requestBody = {
       systemInstruction: {
-        parts: [{ text: this.getSystemPrompt(xeRatio) }]
+        parts: [{ text: this.getSystemPrompt(xeRatio, insulinEnabled) }]
       },
       contents: [
         {
@@ -313,7 +311,7 @@ class NutriGemini {
     };
 
     const data = await this.callGeminiWithFallback(requestBody, settings, settings.gemini_model || 'gemini-3.5-flash-lite');
-    return this.parseGeminiResponse(data, xeRatio);
+    return this.parseGeminiResponse(data, xeRatio, insulinEnabled);
   }
 
   // --- OPENROUTER HANDLERS (NO VPN NEEDED FROM RUSSIA) ---
@@ -387,13 +385,14 @@ class NutriGemini {
   }
 
   async analyzeWithOpenRouterImage(base64Image, mimeType, userNotes, settings, xeRatio) {
+    const insulinEnabled = settings.insulin_enabled === true;
     const promptText = `Определи продукт или блюдо на фотографии. ${userNotes ? 'Уточнение: ' + userNotes : ''}
 ВНИМАНИЕ К МАСШТАБУ И ШТУЧНЫМ СЛАДОСТЯМ/СНЕКАМ:
 - Если это штучный продукт (конфета, шоколад, печенье, снек, орехи): подсчитай точное число штук. Одиночная конфета крупным планом весит всего 13–16 г (НЕ 40г!), карамелька 5–7 г, долька шоколада 5–6 г, печенье 11–14 г. Не путай макросъемку с огромной порцией!
 - Оцени реальный вес готовой порции (не завышай!), рассчитай калории (с учетом варки круп/макарон и умеренного содержания масла), БЖУ и Хлебные Единицы (1 ХЕ = ${xeRatio}г углеводов).`;
 
     const messages = [
-      { role: 'system', content: this.getSystemPrompt(xeRatio) },
+      { role: 'system', content: this.getSystemPrompt(xeRatio, insulinEnabled) },
       {
         role: 'user',
         content: [
@@ -409,48 +408,59 @@ class NutriGemini {
     ];
 
     const data = await this.callOpenRouterWithFallback(messages, settings);
-    return this.parseOpenRouterResponse(data, xeRatio);
+    return this.parseOpenRouterResponse(data, xeRatio, insulinEnabled);
   }
 
   async analyzeWithOpenRouterText(userSpeechText, settings, xeRatio) {
+    const insulinEnabled = settings.insulin_enabled === true;
     const promptText = `Пользователь описал, что он съел: "${userSpeechText}".
 Определи блюдо и ингредиенты. Если указано количество штук (например, «1 конфета», «2 печенья», «кусочек шоколада»), используй точные эталоны штучного веса (1 шоколадная конфета = 13–16г, 1 печенье = 11–14г). Оцени реальный вес готовой порции (не завышай!), рассчитай калории (с учетом варки круп/макарон и умеренного содержания масла), БЖУ и Хлебные Единицы (1 ХЕ = ${xeRatio}г углеводов).`;
 
     const messages = [
-      { role: 'system', content: this.getSystemPrompt(xeRatio) },
+      { role: 'system', content: this.getSystemPrompt(xeRatio, insulinEnabled) },
       { role: 'user', content: promptText }
     ];
 
     const data = await this.callOpenRouterWithFallback(messages, settings);
-    return this.parseOpenRouterResponse(data, xeRatio);
+    return this.parseOpenRouterResponse(data, xeRatio, insulinEnabled);
   }
 
-  parseOpenRouterResponse(apiResponse, xeRatio) {
+  parseOpenRouterResponse(apiResponse, xeRatio, insulinEnabled = false) {
     const content = apiResponse.choices?.[0]?.message?.content;
     if (!content) throw new Error('ИИ не вернул ответ через OpenRouter.');
 
     const cleaned = content.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
-    return this.sanitizeResult(JSON.parse(cleaned), xeRatio);
+    return this.sanitizeResult(JSON.parse(cleaned), xeRatio, insulinEnabled);
   }
 
-  parseGeminiResponse(apiResponse, xeRatio) {
+  parseGeminiResponse(apiResponse, xeRatio, insulinEnabled = false) {
     const rawText = apiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!rawText) throw new Error('ИИ не вернул результат анализа.');
 
     const cleaned = rawText.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
-    return this.sanitizeResult(JSON.parse(cleaned), xeRatio);
+    return this.sanitizeResult(JSON.parse(cleaned), xeRatio, insulinEnabled);
   }
 
-  sanitizeResult(result, xeRatio) {
+  sanitizeResult(result, xeRatio, insulinEnabled = false) {
     const carbs = Math.max(0, Math.round(Number(result.carbs_g) || 0));
     const calculatedXE = Number((carbs / xeRatio).toFixed(1));
 
     let comment = (result.comment || '').trim();
-    // Clinical sanity filter: eliminate any AI hallucination saying "внести/ввести ХЕ"
-    comment = comment.replace(/внести\s+(\d+[\.,]?\d*)\s*ХЕ\s*(для компенсации)?/gi, 'учесть $1 ХЕ для расчета болюса инсулина');
-    comment = comment.replace(/ввести\s+(\d+[\.,]?\d*)\s*ХЕ\s*(для компенсации)?/gi, 'учесть $1 ХЕ для расчета болюса инсулина');
-    comment = comment.replace(/для компенсации (углеводов )?рекомендуется внести/gi, 'для расчета болюсного инсулина учитывайте');
-    comment = comment.replace(/для компенсации (углеводов )?внести/gi, 'для расчета болюса инсулина учитывайте');
+    if (insulinEnabled) {
+      // Clinical sanity filter: eliminate any AI hallucination saying "внести/ввести ХЕ"
+      comment = comment.replace(/внести\s+(\d+[\.,]?\d*)\s*ХЕ\s*(для компенсации)?/gi, 'учесть $1 ХЕ для расчета болюса инсулина');
+      comment = comment.replace(/ввести\s+(\d+[\.,]?\d*)\s*ХЕ\s*(для компенсации)?/gi, 'учесть $1 ХЕ для расчета болюса инсулина');
+      comment = comment.replace(/для компенсации (углеводов )?рекомендуется внести/gi, 'для расчета болюсного инсулина учитывайте');
+      comment = comment.replace(/для компенсации (углеводов )?внести/gi, 'для расчета болюса инсулина учитывайте');
+    } else {
+      // Strip insulin/bolus mentions completely when insulin calculator is disabled
+      comment = comment.replace(/внести\s+(\d+[\.,]?\d*)\s*ХЕ\s*(для компенсации)?/gi, 'учесть $1 ХЕ');
+      comment = comment.replace(/ввести\s+(\d+[\.,]?\d*)\s*ХЕ\s*(для компенсации)?/gi, 'учесть $1 ХЕ');
+      const sentences = (comment.match(/[^.!?]+[.!?]*/g) || []).filter((s) => {
+        return !/(инсулин|болюс|углеводн\w*\s+коэффициент)/i.test(s);
+      });
+      comment = sentences.map((s) => s.trim()).filter(Boolean).join(' ');
+    }
 
     return {
       dish_name: result.dish_name || 'Распознанное блюдо',

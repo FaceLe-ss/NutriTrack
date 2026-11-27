@@ -10,12 +10,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NutriTrack">
-  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=26">
-  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png?v=26">
-  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png?v=26">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=27">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png?v=27">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png?v=27">
   
-  <link rel="manifest" href="./manifest.json?v=26">
-  <link rel="stylesheet" href="./styles.css?v=26">
+  <link rel="manifest" href="./manifest.json?v=27">
+  <link rel="stylesheet" href="./styles.css?v=27">
 </head>
 <body>
 
@@ -139,7 +139,7 @@
         </div>
 
         <!-- Compact 4-meal XE schedule strip -->
-        <div id="mealXeStrip" class="meal-xe-strip" onclick="window.app.openXePlanModal()" title="Нажмите для подробного плана ХЕ и инсулина"></div>
+        <div id="mealXeStrip" class="meal-xe-strip" onclick="window.app.openXePlanModal()" title="Нажмите для подробного плана ХЕ"></div>
       </section>
 
       <!-- SECTION 3: Today's Meals List -->
@@ -201,7 +201,7 @@
         <div id="scanPhotoPreview" style="display:none;"></div>
 
         <div class="form-group">
-          <label class="form-label">Прием пищи (влияет на норму ХЕ и УК)</label>
+          <label class="form-label" id="scanMealTypeLabel">Прием пищи (влияет на норму ХЕ)</label>
           <div class="meal-type-pills" id="scanMealTypeSelector">
             <button type="button" class="meal-type-pill" data-meal-type="Завтрак" onclick="window.app.selectVerificationMealType('Завтрак')">🥣 Завтрак</button>
             <button type="button" class="meal-type-pill" data-meal-type="Обед" onclick="window.app.selectVerificationMealType('Обед')">🥗 Обед</button>
@@ -563,20 +563,22 @@
           </div>
         </details>
 
-        <!-- Section: Insulin & ICR Calculation -->
-        <details class="settings-collapsible" open style="margin-top:10px;">
-          <summary class="settings-summary">
-            <span>💉 Расчет болюса инсулина на еду</span>
-            <span class="chevron">▼</span>
-          </summary>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-color);">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <label class="form-label" style="margin-bottom:0;">Подсказки по дозе инсулина</label>
-              <input type="checkbox" id="settingInsulinEnabled" checked style="width:20px;height:20px;accent-color:var(--color-protein);" />
+        <!-- Section: Insulin & ICR Calculation (Hidden sub-settings when toggle is OFF) -->
+        <div style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--color-protein);text-transform:uppercase;letter-spacing:0.05em;">💉 Расчет инсулина</div>
+              <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">Подсказки дозы болюса на еду</div>
             </div>
+            <label class="toggle-switch" aria-label="Включить расчет инсулина">
+              <input type="checkbox" id="settingInsulinEnabled" onchange="window.app.toggleInsulinSettingsFields()" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
 
+          <div id="insulinSettingsBody" style="display:none;flex-direction:column;gap:10px;padding-top:10px;border-top:1px solid var(--border-color);">
             <!-- Personal Insulin Regimen Inputs -->
-            <div style="background:var(--bg-primary);border-radius:14px;padding:12px;border:1px solid var(--border-color);">
+            <div style="background:var(--bg-surface);border-radius:14px;padding:12px;border:1px solid var(--border-color);">
               <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text-main);">Ваш привычный режим инсулина:</div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
                 <div class="form-group" style="margin-bottom:0;">
@@ -635,7 +637,7 @@
               </select>
             </div>
           </div>
-        </details>
+        </div>
 
         <button class="btn-primary" onclick="window.app.saveSettings()">
           Сохранить настройки
@@ -654,11 +656,11 @@
         </div>
 
         <button class="btn-secondary" style="width:100%;font-size:12px;margin-top:6px;color:var(--color-protein);border-color:rgba(14, 165, 233, 0.3);" onclick="window.app.forceHardUpdate()">
-          🔄 Сбросить кэш и обновить (v26)
+          🔄 Сбросить кэш и обновить (v27)
         </button>
 
         <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px;">
-          NutriTrack v26 · Новая иконка приложения
+          NutriTrack v27 · Управление расчетом инсулина
         </div>
       </div>
     </div>
@@ -717,14 +719,14 @@
       <div class="bottom-sheet" style="max-height:90vh;">
         <div class="sheet-drag-handle"></div>
         <div class="sheet-header">
-          <h2 class="sheet-title">План ХЕ и доз инсулина</h2>
+          <h2 class="sheet-title" id="xePlanModalTitle">План ХЕ на день</h2>
           <button class="icon-btn" style="width:32px;height:32px;" onclick="window.app.closeXePlanModal()">✕</button>
         </div>
         <div id="xePlanModalBody" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:66vh;padding-bottom:6px;">
           <!-- Dynamically populated by app.js -->
         </div>
-        <button class="btn-secondary" style="margin-top:4px;font-size:12px;" onclick="window.app.closeXePlanModal(); window.app.openSettingsModal();">
-          ⚙️ Настроить норму калорий, ХЕ и дозы инсулина
+        <button class="btn-secondary" id="xePlanSettingsBtn" style="margin-top:4px;font-size:12px;" onclick="window.app.closeXePlanModal(); window.app.openSettingsModal();">
+          ⚙️ Настроить норму калорий и ХЕ
         </button>
       </div>
     </div>
@@ -744,11 +746,11 @@
   </div>
 
   <!-- Scripts -->
-  <script src="./js/storage.js?v=26"></script>
-  <script src="./js/camera.js?v=26"></script>
-  <script src="./js/gemini.js?v=26"></script>
-  <script src="./js/voice.js?v=26"></script>
-  <script src="./js/app.js?v=26"></script>
+  <script src="./js/storage.js?v=27"></script>
+  <script src="./js/camera.js?v=27"></script>
+  <script src="./js/gemini.js?v=27"></script>
+  <script src="./js/voice.js?v=27"></script>
+  <script src="./js/app.js?v=27"></script>
 
 </body>
 </html>
