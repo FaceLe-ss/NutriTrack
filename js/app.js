@@ -802,7 +802,7 @@ class NutriApp {
     }
   }
 
-  // 2. VOICE CONTROLLER (Tap-to-start / Tap-to-stop with multi-trigger support)
+  // 2. VOICE CONTROLLER (Tap-to-start / Tap-to-stop with multi-trigger support & iOS audio fallback)
   triggerVoiceInput() {
     if (!this.hasValidApiKey()) {
       this.openSettingsModal('Для голосового ввода укажите API-ключ OpenRouter в настройках.');
@@ -813,12 +813,19 @@ class NutriApp {
     const input = document.getElementById('voiceTranscriptInput');
     const statusLabel = document.getElementById('voiceStatusLabel');
     const micBtn = document.getElementById('voiceMicHeroBtn');
+    const submitBtn = document.getElementById('voiceSubmitBtn');
+
+    if (window.NutriVoice.isBusy) {
+      window.NutriVoice.abort();
+    } else {
+      window.NutriVoice.resetSessionText();
+    }
 
     if (input) input.value = '';
     if (statusLabel) statusLabel.textContent = 'Нажмите на микрофон для записи';
-    if (micBtn) micBtn.classList.remove('recording');
+    if (micBtn) micBtn.classList.remove('recording', 'processing');
+    if (submitBtn) submitBtn.disabled = false;
 
-    window.NutriVoice.abort();
     overlay.classList.add('active');
   }
 
@@ -828,56 +835,89 @@ class NutriApp {
     const input = document.getElementById('voiceTranscriptInput');
     const currentText = input ? input.value : '';
 
-    if (statusLabel) statusLabel.textContent = '🔴 Слушаю вас... Говорите';
-    if (micBtn) micBtn.classList.add('recording');
+    if (statusLabel) statusLabel.textContent = '⏳ Подключаю микрофон...';
+    if (micBtn) micBtn.classList.remove('recording', 'processing');
 
     const started = window.NutriVoice.start(
       (recognizedText) => {
         if (input) input.value = recognizedText;
       },
-      (isListening, reason) => {
-        if (!isListening && micBtn) {
-          micBtn.classList.remove('recording');
+      (state, detail) => {
+        if (state === 'starting') {
+          if (micBtn) micBtn.classList.remove('recording', 'processing');
+          if (statusLabel) statusLabel.textContent = '⏳ Подключаю микрофон...';
+          return;
+        }
+
+        if (state === true || state === 'listening') {
+          if (micBtn) {
+            micBtn.classList.remove('processing');
+            micBtn.classList.add('recording');
+          }
           if (statusLabel) {
-            const hasText = input && input.value.trim();
-            if (reason === 'no-speech') {
-              statusLabel.textContent = hasText ? 'Пауза речи. Нажмите микрофон, чтобы продолжить' : 'Речь не услышана. Нажмите на микрофон для записи';
-            } else {
-              statusLabel.textContent = hasText
-                ? 'Запись завершена. Нажмите микрофон снова или «Рассчитать блюдо»'
-                : 'Нажмите на микрофон для записи';
-            }
+            statusLabel.textContent =
+              detail?.mode === 'recorder'
+                ? '🔴 Запись... Нажмите микрофон, чтобы остановить'
+                : '🔴 Слушаю вас... Говорите';
+          }
+          return;
+        }
+
+        if (state === 'transcribing') {
+          if (micBtn) {
+            micBtn.classList.remove('recording');
+            micBtn.classList.add('processing');
+          }
+          if (statusLabel) statusLabel.textContent = '✨ Распознаю речь через ИИ...';
+          return;
+        }
+
+        if (micBtn) micBtn.classList.remove('recording', 'processing');
+        if (statusLabel) {
+          const hasText = input && input.value.trim();
+          const reason = typeof detail === 'string' ? detail : '';
+          if (reason === 'no-speech') {
+            statusLabel.textContent = hasText
+              ? 'Пауза речи. Нажмите микрофон, чтобы продолжить'
+              : 'Речь не услышана. Нажмите на микрофон для записи';
+          } else if (reason === 'audio-retry') {
+            statusLabel.textContent = 'Микрофон переключен. Нажмите на микрофон еще раз';
+          } else if (reason === 'transcribe-error') {
+            statusLabel.textContent = hasText
+              ? 'Ошибка распознавания. Нажмите микрофон еще раз'
+              : 'Не удалось распознать речь. Нажмите микрофон еще раз';
+          } else if (reason === 'cancel' || reason === 'abort') {
+            statusLabel.textContent = 'Нажмите на микрофон для записи';
+          } else {
+            statusLabel.textContent = hasText
+              ? 'Запись завершена. Нажмите микрофон снова или «Рассчитать блюдо»'
+              : 'Нажмите на микрофон для записи';
           }
         }
       },
       (errorMsg) => {
-        if (micBtn) micBtn.classList.remove('recording');
+        if (micBtn) micBtn.classList.remove('recording', 'processing');
         if (statusLabel) statusLabel.textContent = errorMsg;
         this.showToast(errorMsg, true);
       },
       currentText
     );
 
-    if (!started && statusLabel) {
+    if (!started && !window.NutriVoice.isTranscribing && statusLabel) {
+      if (micBtn) micBtn.classList.remove('recording', 'processing');
       statusLabel.textContent = 'Микрофон недоступен. Нажмите на поле ввода и надиктуйте через клавиатуру iPhone.';
       input?.focus();
     }
   }
 
   toggleVoiceRecording() {
-    const micBtn = document.getElementById('voiceMicHeroBtn');
-    const statusLabel = document.getElementById('voiceStatusLabel');
-    const input = document.getElementById('voiceTranscriptInput');
+    if (window.NutriVoice.isTranscribing) {
+      return;
+    }
 
-    if (window.NutriVoice.isListening) {
-      // User tapped mic to STOP recording
-      const text = window.NutriVoice.stop();
-      if (micBtn) micBtn.classList.remove('recording');
-      if (statusLabel) {
-        statusLabel.textContent = text
-          ? 'Запись остановлена. Нажмите «Рассчитать блюдо» или микрофон снова'
-          : 'Нажмите на микрофон для записи';
-      }
+    if (window.NutriVoice.isListening || window.NutriVoice.isStarting) {
+      // User tapped mic to STOP recording; onStateChange handles UI transition cleanly
+      window.NutriVoice.stop();
     } else {
       // User tapped mic to START recording (supports unlimited restarts)
       this.startVoiceSession();
@@ -887,19 +927,28 @@ class NutriApp {
   cancelVoiceRecording() {
     window.NutriVoice.abort();
     const micBtn = document.getElementById('voiceMicHeroBtn');
-    if (micBtn) micBtn.classList.remove('recording');
+    const submitBtn = document.getElementById('voiceSubmitBtn');
+    if (micBtn) micBtn.classList.remove('recording', 'processing');
+    if (submitBtn) submitBtn.disabled = false;
     document.getElementById('voiceModalOverlay')?.classList.remove('active');
   }
 
   async submitVoiceText() {
-    // If still listening, stop
-    if (window.NutriVoice.isListening) {
-      window.NutriVoice.stop();
-    }
     const micBtn = document.getElementById('voiceMicHeroBtn');
-    if (micBtn) micBtn.classList.remove('recording');
-
+    const statusLabel = document.getElementById('voiceStatusLabel');
+    const submitBtn = document.getElementById('voiceSubmitBtn');
     const input = document.getElementById('voiceTranscriptInput');
+
+    if (window.NutriVoice.isBusy) {
+      if (submitBtn) submitBtn.disabled = true;
+      if (statusLabel) statusLabel.textContent = '✨ Завершаю распознавание речи...';
+      const res = await window.NutriVoice.finishRecording();
+      if (submitBtn) submitBtn.disabled = false;
+      if (res && res.cancelled) return;
+    }
+
+    if (micBtn) micBtn.classList.remove('recording', 'processing');
+
     const text = input ? input.value.trim() : '';
 
     if (!text) {

@@ -425,6 +425,114 @@ ${commentReq}
     return this.parseOpenRouterResponse(data, xeRatio, insulinEnabled);
   }
 
+  /**
+   * Transcribe recorded audio blob (WAV/M4A/WebM) using OpenRouter or Gemini multimodal audio input.
+   * Used as automatic iOS PWA fallback when WebKit SpeechRecognition locks up after cancel/abort.
+   */
+  async transcribeAudio(base64Audio, format = 'wav', mimeType = 'audio/wav') {
+    const settings = await window.NutriStorage.getSettings();
+    const provider = settings.api_provider || 'gemini';
+    const prompt = 'Расшифруй эту голосовую запись на русском языке (пользователь диктует, что он съел, название блюда и вес или количество). Верни ТОЛЬКО точный текст сказанного, без кавычек, пояснений и лишних символов. Если речи нет или слышен только шум, верни пустую строку.';
+
+    let rawText = '';
+
+    if (provider === 'openrouter') {
+      const apiKey = (settings.openrouter_api_key || '').trim();
+      if (!apiKey) {
+        throw new Error('API-ключ OpenRouter не указан. Укажите его в настройках.');
+      }
+
+      const preferred = settings.openrouter_model || 'google/gemini-2.5-flash-lite';
+      const audioModels = [
+        'google/gemini-2.5-flash-lite',
+        'google/gemini-2.5-flash',
+        'google/gemini-2.0-flash-001'
+      ];
+      const modelsToTry = [];
+      if (preferred && /gemini|gpt-4o-audio|audio/i.test(preferred)) {
+        modelsToTry.push(preferred);
+      }
+      for (const m of audioModels) {
+        if (!modelsToTry.includes(m)) modelsToTry.push(m);
+      }
+
+      const messages = [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'input_audio',
+              input_audio: {
+                data: base64Audio,
+                format: format
+              }
+            }
+          ]
+        }
+      ];
+
+      let lastError = null;
+      let data = null;
+      for (const model of modelsToTry) {
+        try {
+          data = await this.executeOpenRouterCall(model, apiKey, messages);
+          break;
+        } catch (err) {
+          lastError = err;
+          const msg = (err.rawMessage || err.message || '').toLowerCase();
+          if (
+            err.status === 404 ||
+            err.status === 429 ||
+            err.status === 400 ||
+            msg.includes('rate-limited') ||
+            msg.includes('no longer available') ||
+            msg.includes('audio') ||
+            msg.includes('unsupported')
+          ) {
+            console.warn(`Audio transcription model ${model} failed, trying next...`, err.message);
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      if (!data) {
+        throw lastError || new Error('Не удалось расшифровать аудио через OpenRouter.');
+      }
+      rawText = data.choices?.[0]?.message?.content || '';
+    } else {
+      const requestBody = {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: mimeType || 'audio/wav',
+                  data: base64Audio
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.1
+        }
+      };
+
+      const data = await this.callGeminiWithFallback(requestBody, settings);
+      rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    return String(rawText)
+      .replace(/```[a-z]*\n?/gi, '')
+      .replace(/```/g, '')
+      .replace(/^[«"']+|[»"']+$/g, '')
+      .trim();
+  }
+
   parseOpenRouterResponse(apiResponse, xeRatio, insulinEnabled = false) {
     const content = apiResponse.choices?.[0]?.message?.content;
     if (!content) throw new Error('ИИ не вернул ответ через OpenRouter.');
