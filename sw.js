@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nutritrack-v25';
+const CACHE_NAME = 'nutritrack-v26';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS_TO_CACHE = [
   './js/voice.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png'
 ];
 
